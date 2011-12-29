@@ -46,29 +46,26 @@ The meat is the 'optimize' command. This will:
      Considers the 20 best shops, takes about a minute. The runtime is
      exponential, so adding 1 shop will roughly double how long it takes.
    --mode=glpk
-     Use the external GLPK optimizer (http://www.gnu.org/software/glpk/).
-     For this, 'glpsol' must be in the path. Runtime is typically longer,
-     but it is able to consider a lot more shops without exponential runtime.
+     Use the external GLPK optimizer (http://www.gnu.org/software/glpk/). For
+     this, 'glpsol' must be in the path. Runtime is typically longer, but it
+     is able to consider a lot more shops without exponential runtime.
      --condiser_shops=40 should be fast, 100 is also feasible but may take
-     hours to complete.
-     This mode caches the solution so if the pricing info, the model and
-     the relevant arguments don't change then it will reuse the previous
-     solution.
+     hours to complete. This mode caches the solution so if the pricing info,
+     the model and the relevant arguments don't change then it will reuse the
+     previous solution.
      
 3. Prints the result.
    --format=text (default)
-     Prints a short summary of which shops were considered, selected and
-     which brick should be ordered from which shop.
-   --format=textv
-     Verbose text format. Prints out details about why the shops were
-     considered.
+     Prints a short summary of which shops were considered, selected and which
+     brick should be ordered from which shop.
    --format=html
-     Full output. This creates a HTML file that contains all details,
-     including the BrickLink wanted lists for each shop.
+     Full output. This creates a HTML file that contains all details, including
+     the BrickLink wanted lists for each shop.
 """
 
 import os.path
 import sys
+import textwrap
 
 import fetch_shops
 import gflags
@@ -80,7 +77,11 @@ FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string(
     'format', 'text',
-    'Output format: text, textv or html (see help).')
+    'Output format: text or html (see help).')
+    
+gflags.DEFINE_string(
+    'cachedir', '.bltools-cache',
+    'Directory where cached files are saved.')
 
 gflags.DEFINE_boolean(
     'refetch_shops', False,
@@ -120,6 +121,8 @@ COMMANDS = {
       'func': lambda argv: OptimizeCommand(argv)}
 }
 
+MAX_CHARS=80
+
 def Print(what, tabs=0):
   def IsSimpleType(obj):
     return (not isinstance(obj, dict)
@@ -139,7 +142,8 @@ def Print(what, tabs=0):
   else:
     if what:
       if IsSimpleType(what[0]):
-        print '%s%s' % (' ' * tabs, ', '.join(str(e) for e in what))
+        for l in textwrap.wrap(', '.join(str(e) for e in what), MAX_CHARS-tabs):
+          print '%s%s' % (' ' * tabs, l)
       else:
         for k in what:
           Print(k, tabs + 1)
@@ -181,15 +185,19 @@ def ListCommand(argv):
 def OptimizeCommand(argv):
   if len(argv) == 3:
     parts = lfxml.GetBricklinkParts(argv[2:3])
-    shops_file_name = '%s.%x.shops' % (
+    shops_file_name = '%s/%s.%x.shops' % (
+        FLAGS.cachedir,
         os.path.splitext(os.path.basename(argv[2]))[0],
         hash(str(parts)) & 0xffffffff)
     if not os.path.exists(shops_file_name):
       print 'Cached shops file %s not found, refetching' % shops_file_name
+      os.makedirs(FLAGS.cachedir)
       fetch_shops.FetchShopInfo(parts, shops_file_name)
     elif FLAGS.refetch_shops:
       print 'Forced refetch of shops file %s' % shops_file_name
       fetch_shops.FetchShopInfo(parts, shops_file_name)
+    else:
+      print 'Using cached shops file %s' % shops_file_name
       
     try:
       opt = optimizer.CreateOptimizer()
@@ -211,8 +219,8 @@ def OptimizeCommand(argv):
 
     opt.Run()
 
-    print 'Order bricks:'
-    Print(opt._order_bricks, tabs=1)
+    print 'Orders:'
+    Print(opt.Orders(), tabs=1)
 
   else:
     ReportError('Optimize needs exactly one argument.')

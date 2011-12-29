@@ -159,6 +159,11 @@ class OptimizerBase(object):
     self._shops_for_parts = self._RemoveExcludedshops(
         self._shops_for_parts, self._shops.keys())
 
+    self._order_shops = {}
+    
+  def Orders(self):
+    return self._order_bricks
+
   @staticmethod
   def _GetPartsNeeded(parts, allow_used):
     parts_needed = copy.copy(parts)
@@ -324,12 +329,12 @@ class BuiltinOptimizer(OptimizerBase):
     return price + len(shop_list) * FLAGS.shop_fix_cost
 
   def _UpdateOrders(self, shop_list):
-    self._order_shops = shop_list
     self._order_bricks = {}
     for p in self._parts_needed:
       for s in self._shops_for_parts[p]:
         if s['shop_name'] in shop_list:
-          self._order_bricks.setdefault(s['shop_name'], []).append(p)
+          self._order_bricks.setdefault(s['shop_name'], {})[p] = (
+              self._parts_needed[p])
           break;
 
   def _PrintOrders(self, shop_list):
@@ -359,23 +364,22 @@ class BuiltinOptimizer(OptimizerBase):
 class GlpkSolver(OptimizerBase):
 
   def Run(self):
-    filename_prefix = '%s.%s' % (
-        os.path.join(
-            os.getcwd(),
-            os.path.splitext(os.path.basename(self._ldd_file_name))[0]),
-        datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
-    ampl_file_name = '%s.ampl' % filename_prefix
+    file_prefix = '%s/%s.%x' % (
+        FLAGS.cachedir,
+        os.path.splitext(os.path.basename(self._ldd_file_name))[0],
+        hash(str(self._parts_needed) + str(self._shops_for_parts)) & 0xffffffff)
+    ampl_file_name = '%s.ampl' % file_prefix
     ampl_file = open(ampl_file_name, 'w')
-    #solution_file_name = '%s.solution' % filename_prefix
-    solution_file_name = 'bela.txt'
-    try:
-      self._Output(ampl_file)
-      ampl_file.flush()
-      #subprocess.call([
-      #    'glpsol', '--model', ampl_file.name,
-      #    '--output', solution_file_name, '--tmlim', '5'])
-    finally:
-      ampl_file.close()
+    solution_file_name = '%s.solution' % file_prefix
+    if not os.path.exists(solution_file_name):
+      try:
+        self._Output(ampl_file)
+        ampl_file.flush()
+        subprocess.call([
+            'glpsol', '--model', ampl_file.name,
+            '--output', solution_file_name, '--tmlim', '30'])
+      finally:
+        ampl_file.close()
 
     try:
       solution_file = open(solution_file_name, 'r')
@@ -384,7 +388,6 @@ class GlpkSolver(OptimizerBase):
       solution_file.close()
 
   def _Parse(self, f):
-    self._order_shops = []
     self._order_bricks = {}
     shop_re = re.compile(r'order_shop\[(.*)\]')
     brick_re = re.compile(r'order_brick\[\'(.*)\',(.*)\]')
@@ -404,15 +407,13 @@ class GlpkSolver(OptimizerBase):
         qty = int(qty_match.group(1))
         if qty:
           if brick:
-            self._order_bricks.setdefault(shop_name, []).append(brick)
-          else:
-            self._order_shops.append(shop_name)
+            self._order_bricks.setdefault(shop_name, {})[brick] = int(qty)
         continue
       shop_name = None
       brick = None
 
   def _Output(self, f):
-    f.write(MATHPROG_MODEL)
+    f.write(AMPL_MODEL)
     f.write('set Bricks\n%s;\n\n' % '\n'.join(self._parts_needed.keys()))
     f.write('set Shops\n%s;\n\n' % '\n'.join(self._shops.keys()))
     f.write('param fix_cost :=\n%s;\n\n' % '\n'.join(
@@ -429,7 +430,7 @@ class GlpkSolver(OptimizerBase):
           l = [o['unit_price'] for o in self._shops_for_parts[p] if o['shop_name'] == s]
           f.write(' %.5f' % l[0])
         else:
-          f.write(' %.5f' % MATHPROG_UNAVAILABLE_PRICE)
+          f.write(' %.5f' % AMPL_UNAVAILABLE_PRICE)
       f.write('\n')
     f.write(';\n\n')
     f.write('end;\n')
