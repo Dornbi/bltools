@@ -13,9 +13,6 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the name of Google Inc. nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -30,21 +27,23 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
-Outputs a wanted list XML file.
+Returns a wanted list XML file.
 """
 
-def OutputWantedList(f, parts_dict, allow_used=[], wanted_list_id=None):
-  f.write('<INVENTORY>\n')
+def WantedList(parts_dict, allow_used=[], extra_tags=None):
+  result = ''
+  result += '<INVENTORY>\n'
   for key in sorted(parts_dict):
-    f.write(' <ITEM>\n')
-    f.write('  <ITEMTYPE>P</ITEMTYPE>\n')
-    f.write('  <ITEMID>%s</ITEMID>\n' % key.split('-')[0])
-    f.write('  <COLOR>%s</COLOR>\n' % key.split('-')[1])
-    f.write('  <MINQTY>%s</MINQTY>\n' % parts_dict[key])
-    f.write('  <NOTIFY>N</NOTIFY>\n')
+    result += '<ITEM>'
+    result += '<ITEMTYPE>P</ITEMTYPE>'
+    result += '<ITEMID>%s</ITEMID>' % key.split('-')[0]
+    result += '<COLOR>%s</COLOR>' % key.split('-')[1]
+    result += '<MINQTY>%s</MINQTY>\n' % parts_dict[key]
+    result += '<NOTIFY>N</NOTIFY>'
     if key not in allow_used:
-      f.write('  <CONDITION>N</CONDITION>\n')
-    if wanted_list_id:
-      f.write('  <WANTEDLISTID>%s</WANTEDLISTID>\n' % wanted_list_id)
-    f.write(' </ITEM>\n')
-  f.write('</INVENTORY>\n')
+      result += '<CONDITION>N</CONDITION>'
+    if extra_tags:
+      result += extra_tags
+    result += '</ITEM>\n'
+  result += '</INVENTORY>\n'
+  return result

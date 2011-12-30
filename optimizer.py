@@ -13,9 +13,6 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the name of Google Inc. nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -90,7 +87,12 @@ gflags.DEFINE_integer(
     'Number of shops to consider. For mode=builtin the max feasible value is '
     '20. With mode=glpk it can be much more, about 60 or 100 may be still ok '
     'depending on the model.')
-
+    
+gflags.DEFINE_integer(
+    'glpk_limit_seconds', 0,
+    'If non-zero, glpk will spend so much time on finding the optimal '
+    'solution.')
+    
 
 AMPL_MODEL="""
 set Bricks;
@@ -157,21 +159,27 @@ class OptimizerBase(object):
 
     # dict str(part) -> [dict(quantity, unit_price, shop_name)]
     self._shops_for_parts = self._FilterOffers(
-        self._parts_needed, unfiltered_shops_for_parts)
+        self._parts_needed, unfiltered_shops_for_parts, allow_used)
 
     self._CalculateCandidateShops(self._shops_for_parts, self._parts_needed)
     self._shops_for_parts = self._RemoveExcludedshops(
         self._shops_for_parts, self._shops.keys())
-    
+
+  def PartsNeeded(self):
+    return self._parts_needed
+
+  def NumBricksNeeded(self):
+    return sum(self._parts_needed[p] for p in self._parts_needed)
+
   def CriticalShops(self):
     return self._critical_shops
 
   def SupplementalShops(self):
     return self._supplemental_shops
-    
+
   def Orders(self):
     return self._order_bricks
-    
+
   def UnitPrice(self, shop, part):
     for s in self._shops_for_parts[part]:
       if s['shop_name'] == shop:
@@ -205,7 +213,7 @@ class OptimizerBase(object):
     return shops_for_parts
 
   @staticmethod
-  def _FilterOffers(parts_needed, shops_for_parts):
+  def _FilterOffers(parts_needed, shops_for_parts, allow_used):
     filtered_shops_for_parts = {}
     for p in shops_for_parts:
       if p not in parts_needed:
@@ -214,8 +222,7 @@ class OptimizerBase(object):
       for s in shops_for_parts[p]:
         if (s['quantity'] >= parts_needed[p]
             and (s['condition'] == 'N'
-                or ((p in FLAGS.include_used or 'all' in FLAGS.include_used)
-                    and p not in FLAGS.exclude_used))
+                or p in allow_used)
             and (not FLAGS.include_shops
                 or s['shop_name'] in FLAGS.include_shops)
             and s['shop_name'] not in FLAGS.exclude_shops
@@ -366,16 +373,17 @@ class BuiltinOptimizer(OptimizerBase):
 class GlpkSolver(OptimizerBase):
 
   def Run(self):
+    hash_str = str(self._parts_needed) + str(self._shops_for_parts)
     file_prefix = '%s/%s.%08x' % (
         FLAGS.cachedir,
         os.path.splitext(os.path.basename(self._ldd_file_name))[0],
-        hash(str(self._parts_needed) + str(self._shops_for_parts)) & 0xffffffff)
+        hash(hash_str) & 0xffffffff)
     ampl_file_name = '%s.ampl' % file_prefix
     solution_file_name = '%s.solution' % file_prefix
     
     if FLAGS.rerun_solver:
       print 'Forced rerun of solver for solution file %s' % solution_file_name
-      self._RunSolver()
+      self._RunSolver(ampl_file_name, solution_file_name)
     elif os.path.exists(solution_file_name):
       print 'Using cached solution file %s' % solution_file_name
     else:
@@ -385,7 +393,7 @@ class GlpkSolver(OptimizerBase):
         os.makedirs(FLAGS.cachedir)
       except OSError:
         pass
-        self._RunSolver()
+      self._RunSolver(ampl_file_name, solution_file_name)
     try:
       solution_file = open(solution_file_name, 'r')
       self._Parse(solution_file)
@@ -397,9 +405,11 @@ class GlpkSolver(OptimizerBase):
       ampl_file = open(ampl_file_name, 'w')
       self._Output(ampl_file)
       ampl_file.flush()
-      subprocess.call([
-          'glpsol', '--model', ampl_file.name,
-          '--output', solution_file_name, '--tmlim', '30'])
+      args = ['glpsol', '--model', ampl_file.name,
+              '--output', solution_file_name]
+      if (FLAGS.glpk_limit_seconds):
+        args.extend(['--tmlim', str(FLAGS.glpk_limit_seconds)])
+      subprocess.call(args)
     finally:
       ampl_file.close()
 
@@ -456,6 +466,7 @@ def CreateOptimizer():
   if FLAGS.mode == 'builtin':
     return BuiltinOptimizer()
   elif FLAGS.mode == 'glpk':
+    FLAGS.SetDefault('consider_shops', 40)
     return GlpkSolver()
   else:
     raise NameError('Unknown mode %s' % FLAGS.mode)

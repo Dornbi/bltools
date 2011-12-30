@@ -13,9 +13,6 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the name of Google Inc. nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -39,7 +36,11 @@ To get help:
   bltool help: about all commands
   bltool --help: about all flags
 
-The meat is the 'optimize' command. This will:
+The meat is the 'optimize' command. This command reads the LDD file and
+calculates the near-optimal orders from BrickLink shops to order add parts
+listed in the LDD file.
+
+Optimize does the following:
 
 1. If not cached yet, fetches prices and shops for all bricks in the LDD model
    and store it a cache file. This will be also refetched if the model changes
@@ -73,14 +74,17 @@ Caveats:
   part ID and MM is the color code (as on BLID on http://peeron.com/inv/colors).
   If you generate HTML output, these identifiers will link directly to the
   colored part on BrickLink.
-* All prices are shown in local currency. This depends on the currency
-  BrickLink thinks are valid, based on your IP address.
-* The shipping costs are modeled with a fix cost per shop. The cost can be
+* All prices are shown in local currency. This is determined by BrickLink
+  based on your IP address.
+* The shipping costs are modeled as a fix cost per shop. The cost can be
   controlled by the --shop_fix_cost flag.
 * The minimum purchase per shop is only taken into account
   with --model=glpk.
-* Some shops allow items to be purchased in batches only. There is no support
-  for that. To work around, you can order more or use --exclude_shops.
+* Some shops allow items to be purchased in batches only. This is not
+  taken into account. To work around, you can order more or use
+  --exclude_shops.
+* When --model=glpk, the ordered quantity may be more than the needed one,
+  to fulfill mininum order requirements of shops.
 """
 
 import os.path
@@ -141,7 +145,7 @@ COMMANDS = {
           'output_html', 'cachedir', 'refetch_shops', 'include_used',
           'exclude_used', 'mode', 'rerun_solver', 'multiple', 'exclude_shops',
           'include_shops', 'include_countries', 'exclude_countries',
-          'shop_fix_cost', 'max_shops', 'consider-shops'],
+          'shop_fix_cost', 'max_shops', 'consider-shops', 'glpk_limit_seconds'],
       'func': lambda argv: OptimizeCommand(argv)}
 }
 
@@ -150,7 +154,7 @@ def ReportError(msg):
   print 'Use bltool help to list the available commands and flags.'
   sys.exit(1)
 
-def AllowedUserBricks(parts):
+def AllowedUsedBricks(parts):
   return [
       p for p in parts
       if ('all' in FLAGS.include_used or p in FLAGS.include_used)
@@ -173,9 +177,12 @@ def ListCommand(argv):
   if len(argv) >= 3:
     parts = lfxml.GetBricklinkParts(argv[2:])
     count = sum(parts[k] for k in parts)
+    extra_tags = ''
+    if FLAGS.wanted_list_id:
+      extra_tags = '<WANTEDLISTID>%s</WANTEDLISTID>' % FLAGS.wanted_list_id
     sys.stdout.write('<!-- Total parts: %s -->\n' % count)
-    wanted_list.OutputWantedList(
-        sys.stdout, parts, AllowedUsedBricks(parts), FLAGS.wanted_list_id)
+    sys.stdout.write(
+        wanted_list.WantedList(parts, AllowedUsedBricks(parts), extra_tags))
   else:
     ReportError('Not enough args for list.')
     
@@ -210,7 +217,9 @@ def OptimizeCommand(argv):
     output.PrintOrdersText(opt, FLAGS.shop_fix_cost)
     
     if FLAGS.output_html:
-      output.PrintAllHtml(opt, FLAGS.shop_fix_cost, argv[2], FLAGS.output_html)
+      output.PrintAllHtml(
+          opt, FLAGS.shop_fix_cost, argv[2],
+          AllowedUsedBricks(parts), FLAGS.output_html)
 
   else:
     ReportError('Optimize needs exactly one argument.')
