@@ -53,6 +53,10 @@ gflags.DEFINE_string(
     '--consider_shops=20. "gplk" will invoke the external glpsol '
     'linear program solver.')
 
+gflags.DEFINE_boolean(
+    'rerun_solver', False,
+    'Force re-running the solver. Affects --mode=glpk only.')
+
 gflags.DEFINE_integer(
     'multiple', 1,
     'Buys bricks for multiple sets, not just one.')
@@ -79,7 +83,7 @@ gflags.DEFINE_float(
 
 gflags.DEFINE_integer(
     'max_shops', 8,
-    'The maximum number of shops to evaluate. Affects mode=builtin only.')
+    'The maximum number of shops to evaluate. Affects --mode=builtin only.')
 
 gflags.DEFINE_integer(
     'consider_shops', 20,
@@ -158,11 +162,31 @@ class OptimizerBase(object):
     self._CalculateCandidateShops(self._shops_for_parts, self._parts_needed)
     self._shops_for_parts = self._RemoveExcludedshops(
         self._shops_for_parts, self._shops.keys())
+    
+  def CriticalShops(self):
+    return self._critical_shops
 
-    self._order_shops = {}
+  def SupplementalShops(self):
+    return self._supplemental_shops
     
   def Orders(self):
     return self._order_bricks
+    
+  def UnitPrice(self, shop, part):
+    for s in self._shops_for_parts[part]:
+      if s['shop_name'] == shop:
+        return s['unit_price']
+    return None
+        
+  def NetShopTotal(self, shop):
+    return sum(
+        self.UnitPrice(shop, part) * self._order_bricks[shop][part]
+        for part in self._order_bricks[shop])
+    
+  def NetGrandTotal(self):
+    return sum(
+        self.NetShopTotal(shop)
+        for shop in self._order_bricks)
 
   @staticmethod
   def _GetPartsNeeded(parts, allow_used):
@@ -264,6 +288,8 @@ class OptimizerBase(object):
       if s in supplemental_shops:
         del supplemental_shops[s]
 
+    self._critical_shops = copy.copy(critical_shops)
+
     assert len(critical_shops) < FLAGS.consider_shops
     supplemental_list = sorted(
         (s for s in supplemental_shops),
@@ -275,7 +301,6 @@ class OptimizerBase(object):
         (s, supplemental_shops[s])
         for s in supplemental_list)
     result.update(selected_supplemental_shops)
-    self._critical_shops = critical_shops
     self._supplemental_shops = selected_supplemental_shops
     self._shops = result
 
@@ -337,55 +362,46 @@ class BuiltinOptimizer(OptimizerBase):
               self._parts_needed[p])
           break;
 
-  def _PrintOrders(self, shop_list):
-    orders_per_shop = {}
-    total_per_shop = {}
-    for p in self._parts_needed:
-      for s in self._shops_for_parts[p]:
-        if s['shop_name'] in shop_list:
-          orders_per_shop.setdefault(s['shop_name'], [])
-          orders_per_shop[s['shop_name']].append({
-            'part': p,
-            'unit_price': s['unit_price'],
-            'quantity': self._parts_needed[p],
-            'total_price': s['unit_price'] * self._parts_needed[p]
-            })
-          total_per_shop.setdefault(s['shop_name'], 0.0)
-          total_per_shop[s['shop_name']] += s['unit_price'] * self._parts_needed[p]
-          break;
-    for shop in orders_per_shop:
-      print 'Shop %s, total %.2f' % (shop, total_per_shop[shop])
-      for part in orders_per_shop[shop]:
-        print (' part %(part)s, unit_price %(unit_price).2f,'
-               ' qty %(quantity)d, total_price %(total_price).2f' % part)
-      print
-
 
 class GlpkSolver(OptimizerBase):
 
   def Run(self):
-    file_prefix = '%s/%s.%x' % (
+    file_prefix = '%s/%s.%08x' % (
         FLAGS.cachedir,
         os.path.splitext(os.path.basename(self._ldd_file_name))[0],
         hash(str(self._parts_needed) + str(self._shops_for_parts)) & 0xffffffff)
     ampl_file_name = '%s.ampl' % file_prefix
-    ampl_file = open(ampl_file_name, 'w')
     solution_file_name = '%s.solution' % file_prefix
-    if not os.path.exists(solution_file_name):
+    
+    if FLAGS.rerun_solver:
+      print 'Forced rerun of solver for solution file %s' % solution_file_name
+      self._RunSolver()
+    elif os.path.exists(solution_file_name):
+      print 'Using cached solution file %s' % solution_file_name
+    else:
+      print 'Cached solution file %s not found, running solver' % (
+          solution_file_name)
       try:
-        self._Output(ampl_file)
-        ampl_file.flush()
-        subprocess.call([
-            'glpsol', '--model', ampl_file.name,
-            '--output', solution_file_name, '--tmlim', '30'])
-      finally:
-        ampl_file.close()
-
+        os.makedirs(FLAGS.cachedir)
+      except OSError:
+        pass
+        self._RunSolver()
     try:
       solution_file = open(solution_file_name, 'r')
       self._Parse(solution_file)
     finally:
       solution_file.close()
+
+  def _RunSolver(self, ampl_file_name, solution_file_name):
+    try:
+      ampl_file = open(ampl_file_name, 'w')
+      self._Output(ampl_file)
+      ampl_file.flush()
+      subprocess.call([
+          'glpsol', '--model', ampl_file.name,
+          '--output', solution_file_name, '--tmlim', '30'])
+    finally:
+      ampl_file.close()
 
   def _Parse(self, f):
     self._order_bricks = {}

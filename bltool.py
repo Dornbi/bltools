@@ -35,6 +35,10 @@ Converts Lego Digital Designer files into Bricklink orders.
 Usage:
   bltool <command> [<flags>] <LDD_file>
   
+To get help:
+  bltool help: about all commands
+  bltool --help: about all flags
+
 The meat is the 'optimize' command. This will:
 
 1. If not cached yet, fetches prices and shops for all bricks in the LDD model
@@ -55,29 +59,45 @@ The meat is the 'optimize' command. This will:
      previous solution.
      
 3. Prints the result.
-   --format=text (default)
-     Prints a short summary of which shops were considered, selected and which
-     brick should be ordered from which shop.
-   --format=html
-     Full output. This creates a HTML file that contains all details, including
-     the BrickLink wanted lists for each shop.
+   By default, it prints a short summary of which shops were considered,
+   selected and which brick should be ordered from which shop.
+   --output_html=<filename>
+     If set, writes all details into a HTML file. The file contains:
+     * list of all shops considered, with scores
+     * list of all shops to order from
+     * list of all bricks to order from each shop
+     * BrickLink wanted list XML list for each shop
+
+Caveats:
+* Part identifiers have the form NNNN-MM where NNNN is the BrickLink
+  part ID and MM is the color code (as on BLID on http://peeron.com/inv/colors).
+  If you generate HTML output, these identifiers will link directly to the
+  colored part on BrickLink.
+* All prices are shown in local currency. This depends on the currency
+  BrickLink thinks are valid, based on your IP address.
+* The shipping costs are modeled with a fix cost per shop. The cost can be
+  controlled by the --shop_fix_cost flag.
+* The minimum purchase per shop is only taken into account
+  with --model=glpk.
+* Some shops allow items to be purchased in batches only. There is no support
+  for that. To work around, you can order more or use --exclude_shops.
 """
 
 import os.path
 import sys
-import textwrap
 
 import fetch_shops
 import gflags
 import lfxml
 import optimizer
+import output
 import wanted_list
 
 FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string(
-    'format', 'text',
-    'Output format: text or html (see help).')
+    'output_html', '',
+    'Output full details in HTML besides normal text output.')
     
 gflags.DEFINE_string(
     'cachedir', '.bltools-cache',
@@ -117,36 +137,13 @@ COMMANDS = {
   'optimize': {
       'usage': '[<flags>] optimize <LDD_file>',
       'desc': 'Fetches BrickLink shops and print optimal sellers (expensive).',
-      'flags': ['format', 'refetch_shops', 'include_used', 'exclude_used'],
+      'flags': [
+          'output_html', 'cachedir', 'refetch_shops', 'include_used',
+          'exclude_used', 'mode', 'rerun_solver', 'multiple', 'exclude_shops',
+          'include_shops', 'include_countries', 'exclude_countries',
+          'shop_fix_cost', 'max_shops', 'consider-shops'],
       'func': lambda argv: OptimizeCommand(argv)}
 }
-
-MAX_CHARS=80
-
-def Print(what, tabs=0):
-  def IsSimpleType(obj):
-    return (not isinstance(obj, dict)
-        and not isinstance(obj, list)
-        and not isinstance(obj, set))
-  
-  if isinstance(what, dict):
-    for k in what:
-      w = what[k]
-      if IsSimpleType(w):
-        print '%s%s: %s' % (' ' * tabs, k, w)
-      else:
-        print '%s%s' % (' ' * tabs, k)
-        Print(what[k], tabs + 1)
-  elif IsSimpleType(what):
-    print '%s%s' % (' ' * tabs, what)
-  else:
-    if what:
-      if IsSimpleType(what[0]):
-        for l in textwrap.wrap(', '.join(str(e) for e in what), MAX_CHARS-tabs):
-          print '%s%s' % (' ' * tabs, l)
-      else:
-        for k in what:
-          Print(k, tabs + 1)
 
 def ReportError(msg):
   print 'Error: %s' % msg
@@ -185,42 +182,35 @@ def ListCommand(argv):
 def OptimizeCommand(argv):
   if len(argv) == 3:
     parts = lfxml.GetBricklinkParts(argv[2:3])
-    shops_file_name = '%s/%s.%x.shops' % (
+    shops_file_name = '%s/%s.%08x.shops' % (
         FLAGS.cachedir,
         os.path.splitext(os.path.basename(argv[2]))[0],
         hash(str(parts)) & 0xffffffff)
-    if not os.path.exists(shops_file_name):
-      print 'Cached shops file %s not found, refetching' % shops_file_name
-      os.makedirs(FLAGS.cachedir)
-      fetch_shops.FetchShopInfo(parts, shops_file_name)
-    elif FLAGS.refetch_shops:
+    if FLAGS.refetch_shops:
       print 'Forced refetch of shops file %s' % shops_file_name
       fetch_shops.FetchShopInfo(parts, shops_file_name)
-    else:
+    elif os.path.exists(shops_file_name):
       print 'Using cached shops file %s' % shops_file_name
+    else:
+      print 'Cached shops file %s not found, refetching' % shops_file_name
+      try:
+        os.makedirs(FLAGS.cachedir)
+      except OSError:
+        pass
+      fetch_shops.FetchShopInfo(parts, shops_file_name)
       
     try:
       opt = optimizer.CreateOptimizer()
     except NameError, e:
       ReportError(e)
 
-    opt.Load(parts, argv[2], shops_file_name)
-    
-    print 'Critical shops:'
-    if FLAGS.format == 'text':
-      Print(opt._critical_shops.keys(), tabs=1)
-    else:
-      Print(opt._critical_shops, tabs=1)
-    print 'Supplemental shops:'
-    if FLAGS.format == 'text':
-      Print(opt._supplemental_shops.keys(), tabs=1)
-    else:
-      Print(opt._supplemental_shops, tabs=1)
-
+    opt.Load(parts, argv[2], shops_file_name)    
+    output.PrintShopsText(opt)
     opt.Run()
-
-    print 'Orders:'
-    Print(opt.Orders(), tabs=1)
+    output.PrintOrdersText(opt, FLAGS.shop_fix_cost)
+    
+    if FLAGS.output_html:
+      output.PrintAllHtml(opt, FLAGS.shop_fix_cost, argv[2], FLAGS.output_html)
 
   else:
     ReportError('Optimize needs exactly one argument.')
