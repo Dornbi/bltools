@@ -31,8 +31,8 @@ Modules to optimizes the purchase.
 """
 
 import copy
-import datetime
 import json
+import math
 import os
 import os.path
 import re
@@ -171,11 +171,17 @@ class OptimizerBase(object):
   def NumBricksNeeded(self):
     return sum(self._parts_needed[p] for p in self._parts_needed)
 
+  def NumShopsAvailable(self, part):
+    return len(self._shops_for_parts[part])
+
   def CriticalShops(self):
     return self._critical_shops
 
   def SupplementalShops(self):
     return self._supplemental_shops
+
+  def UnselectedShops(self):
+    return self._unselected_shops
 
   def Orders(self):
     return self._order_bricks
@@ -267,8 +273,8 @@ class OptimizerBase(object):
         assert found
 
     # Second, populate the supplemental list with scores.
-    base_score = 3 * (
-        len(existing_shops) * FLAGS.shop_fix_cost / len(parts_by_rarity))
+    base_score = 10 * (
+        len(critical_shops) * FLAGS.shop_fix_cost / len(parts_by_rarity))
     for p in parts_by_rarity:
       part = p[0]
       existing_shops = (
@@ -286,7 +292,7 @@ class OptimizerBase(object):
                 'min_buy': s['min_buy'],
                 'location': s['location'],
                 'score': 0.0}
-          score = base_score / len(shops_for_parts[part])
+          score = base_score / math.log(len(shops_for_parts[part]) + 1)
           score += (existing_price - s['unit_price']) * parts_needed[part]
           if (score > 0):
             supplemental_shops[s['shop_name']]['score'] -= score
@@ -309,6 +315,10 @@ class OptimizerBase(object):
         for s in supplemental_list)
     result.update(selected_supplemental_shops)
     self._supplemental_shops = selected_supplemental_shops
+    self._unselected_shops = dict(
+        (s, supplemental_shops[s])
+        for s in supplemental_shops
+        if s not in supplemental_list and s not in critical_shops)
     self._shops = result
 
   @staticmethod
@@ -466,7 +476,6 @@ def CreateOptimizer():
   if FLAGS.mode == 'builtin':
     return BuiltinOptimizer()
   elif FLAGS.mode == 'glpk':
-    FLAGS.SetDefault('consider_shops', 40)
     return GlpkSolver()
   else:
     raise NameError('Unknown mode %s' % FLAGS.mode)

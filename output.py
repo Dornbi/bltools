@@ -56,6 +56,10 @@ pre {
 .wanted {
   vertical-align: top;
 }
+.unselected {
+  color: #808080;
+  background-color: #c0c0c0;
+}
 """
 
 JAVASCRIPT="""
@@ -136,14 +140,22 @@ TOTAL_SKELETON = """
 
 ORDER_SHOPHEAD = """
 <tr class="head">
-<td colspan="6">%s</td>
+<td colspan="7">%s</td>
 </tr>
 <tr>
-<td colspan="5">Net cost (without shipping):</td>
+<td colspan="6">Number of parts needed:</td>
+<td class="rightalign">%d</td>
+</tr>
+<tr>
+<td colspan="6">Number of bricks needed:</td>
+<td class="rightalign">%d</td>
+</tr>
+<tr>
+<td colspan="6">Net cost (without shipping):</td>
 <td class="rightalign">%.2f</td>
 </tr>
 <tr>
-<td colspan="5">Gross cost (with shipping):</td>
+<td colspan="6">Gross cost (with shipping):</td>
 <td class="rightalign">%.2f</td>
 <td>Update wanted list ID:
 <input type="text" onchange="update(this, 'wanted_%s')"/>
@@ -155,6 +167,7 @@ ORDER_ROWHEAD = """
 <tr class="head">
 <td>Part<br/>(id-color)</td>
 <td>Allow<br/>used?</td>
+<td>Available<br/>in shops</td>
 <td class="rightalign">Quantity<br/>needed</td>
 <td class="rightalign">Quantity<br/>on order</td>
 <td class="rightalign">Unit<br/>price</td>
@@ -165,7 +178,7 @@ ORDER_ROWHEAD = """
 
 ORDER_XML = """
 <tr>
-<td colspan="6"></td>
+<td colspan="7"></td>
 <td class="wanted" rowspan="%d"><pre>%s</pre></td>
 </tr>
 """
@@ -176,6 +189,7 @@ ORDER_ROW = """
 <tr>
 <td>%s</td>
 <td>%s</td>
+<td class="rightalign">%d</td>
 <td class="rightalign">%d</td>
 <td class="rightalign">%d</td>
 <td class="rightalign">%.2f</td>
@@ -197,6 +211,14 @@ CONSIDERED_HEAD = """
 
 CONSIDERED_ROW = """
 <tr>
+<td>%s</td>
+<td>%s</td>
+<td>%s</td>
+</tr>
+"""
+
+UNSELECTED_ROW = """
+<tr class="unselected">
 <td>%s</td>
 <td>%s</td>
 <td>%s</td>
@@ -283,6 +305,7 @@ def PrintAllHtml(
         shop_fragment += ORDER_ROW % (
             link,
             used,
+            optimizer.NumShopsAvailable(part),
             optimizer.PartsNeeded()[part],
             num_parts,
             unit_price,
@@ -291,6 +314,8 @@ def PrintAllHtml(
       shop_cost = optimizer.NetShopTotal(shop)
       orders_fragment += ORDER_SHOPHEAD % (
           MakeLink(SHOP_LINK % shop, shop),
+          num_shop_part_types,
+          num_shop_parts,
           shop_cost,
           shop_cost + shop_fix_cost,
           shop)
@@ -323,10 +348,18 @@ def PrintAllHtml(
     for shop in sorted(optimizer.CriticalShops()):
       considered_fragment += CONSIDERED_ROW % (
           MakeLink(SHOP_LINK % shop, shop), 'Y', '')
-    for shop in sorted(optimizer.SupplementalShops()):
+    for shop in sorted(
+        optimizer.SupplementalShops(),
+        key=lambda shop: optimizer.SupplementalShops()[shop]['score']):
       considered_fragment += CONSIDERED_ROW % (
           MakeLink(SHOP_LINK % shop, shop), '-',
           '%.2f' % -optimizer.SupplementalShops()[shop]['score'])
+    for shop in sorted(
+        optimizer.UnselectedShops(),
+        key=lambda shop: optimizer.UnselectedShops()[shop]['score']):
+      considered_fragment += UNSELECTED_ROW % (
+          MakeLink(SHOP_LINK % shop, shop), '-',
+          '%.2f' % -optimizer.UnselectedShops()[shop]['score'])
     html = HTML_SKELETON % (
         title, CSS, JAVASCRIPT, title,
         total_fragment, orders_fragment, considered_fragment)
