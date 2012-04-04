@@ -36,6 +36,8 @@ import zipfile
 
 import gflags
 
+import part_collector
+
 FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string('color_translate', '',
@@ -218,56 +220,40 @@ TRANSLATE_PARTS = {
 	'99999992': '2878C01',
 }
 
-def TranslateParts(parts_dict):
-  # Parse the custom dict.
-  custom_dict = {}
-  for mapping in FLAGS.color_translate.split(','):
-    split_mapping = mapping.split(':')
-    if len(split_mapping) >1:
-      custom_dict[split_mapping[0]] = split_mapping[1]
-    
-  result = {}
-  for key in parts_dict.keys():
-    (part_id, color_id) = key.split('-')
-    if color_id in TRANSLATE_COLORS:
-      color_id = TRANSLATE_COLORS[color_id]
-      if color_id in custom_dict:
-        color_id = custom_dict[color_id]
-      if part_id in TRANSLATE_PARTS:
-        part_id = TRANSLATE_PARTS[part_id]
-      translated_key = '%s-%s' % (part_id, color_id)
-      result[translated_key] = result.get(translated_key, 0) + parts_dict[key]
-    else:
-      print 'Unknown color: %s' % color_id
-  return result
-
 class LxfmlPartCollector(xml.sax.handler.ContentHandler):
-  def __init__(self):
-    self._parts = {}
-    self._part_ids = set()
-    self._count = 0
+  def __init__(self, collector = part_collector.PartCollector()):
+    self._collector = collector
+    self._custom_dict = self._ParseCustomDict()
+
+  def _ParseCustomDict(self):
+    custom_dict = {}
+    for mapping in FLAGS.color_translate.split(','):
+      split_mapping = mapping.split(':')
+      if len(split_mapping) >1:
+        custom_dict[split_mapping[0]] = split_mapping[1]
+    return custom_dict
 
   def startElement(self, name, attrs):
     if name == 'Part' and 'designID' in attrs and 'materials' in attrs:
       part_id = attrs['designID']
       color_id = attrs['materials'].split(',')[0]
-      key = '%s-%s' % (part_id, color_id)
-      self._parts[key] = self._parts.get(key, 0) + 1
-      self._part_ids.add(part_id)
+      if color_id in TRANSLATE_COLORS:
+        color_id = TRANSLATE_COLORS[color_id]
+        if color_id in self._custom_dict:
+          color_id = self._custom_dict[color_id]
+        if part_id in TRANSLATE_PARTS:
+          part_id = TRANSLATE_PARTS[part_id]
+        self._collector.AddPart(part_id, color_id)
+      else:
+        print 'Unknown color: %s for part %s' % color_id, part_id
 
-  def Parts(self):
-    return self._parts
 
+def CollectBricklinkParts(filename, collector):
+  lxfml_part_collector = LxfmlPartCollector(collector)
+  zf = zipfile.ZipFile(filename, 'r')
+  try:
+    f = zf.open('IMAGE100.LXFML', 'r')
+    xml.sax.parse(f, lxfml_part_collector)
+  finally:
+    zf.close()
 
-def GetBricklinkParts(filenames):
-  part_collector = LxfmlPartCollector()
-  for filename in filenames:
-    zf = zipfile.ZipFile(filename, 'r')
-    try:
-      f = zf.open('IMAGE100.LXFML', 'r')
-      xml.sax.parse(f, part_collector)
-    finally:
-      zf.close()
-
-  ldd_parts = part_collector.Parts()
-  return TranslateParts(ldd_parts)

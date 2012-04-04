@@ -27,8 +27,57 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
-Returns a wanted list XML file.
+Parses and generates a wanted list XML file.
 """
+
+import xml.sax
+import xml.sax.handler
+
+import part_collector
+
+
+class WantedListPartCollector(xml.sax.handler.ContentHandler):
+  def __init__(self, collector = part_collector.PartCollector()):
+    self._collector = collector
+    self._current_part_dict = {}
+    self._current_elem_name = ''
+    self._current_content = ''
+
+  def startElement(self, name, attrs):
+    upperName = name.upper()
+    if upperName == 'ITEM':
+      self._current_part_dict = {}
+    else:
+      self._current_elem_name = upperName
+    self._current_content = ''
+
+  def endElement(self, name):
+    upperName = name.upper()
+    if upperName == 'ITEM':
+      # We've finished the item, so collect it.
+      part_id = self._current_part_dict['ITEMID']
+      color_id = self._current_part_dict['COLOR']
+      quantity = int(self._current_part_dict['MINQTY'] or 1)
+      self._collector.AddPart(part_id, color_id, quantity)
+    elif self._current_elem_name != '':
+      # This is the end of a (probably nested) element, so add its content
+      # to the part dict.
+      self._current_part_dict[self._current_elem_name] = \
+          self._current_content.strip()
+
+  # This is called multiple times per element, so we append the content each
+  # time.
+  def characters(self, content):
+    self._current_content += content
+
+
+def CollectBricklinkParts(filename, collector):
+  wanted_list_part_collector = WantedListPartCollector(collector)
+  try:
+    f = open(filename, 'r')
+    xml.sax.parse(f, wanted_list_part_collector)
+  finally:
+    f.close()
 
 def WantedList(parts_dict, allow_used=[], extra_tags=None):
   result = ''

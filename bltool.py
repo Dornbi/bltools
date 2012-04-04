@@ -95,6 +95,7 @@ import gflags
 import lfxml
 import optimizer
 import output
+import part_collector
 import wanted_list
 
 FLAGS = gflags.FLAGS
@@ -175,7 +176,7 @@ def HelpCommand(argv):
   
 def ListCommand(argv):
   if len(argv) >= 3:
-    parts = lfxml.GetBricklinkParts(argv[2:])
+    parts = ReadParts(argv[2:])
     count = sum(parts[k] for k in parts)
     extra_tags = ''
     if FLAGS.wanted_list_id:
@@ -188,7 +189,7 @@ def ListCommand(argv):
     
 def OptimizeCommand(argv):
   if len(argv) == 3:
-    parts = lfxml.GetBricklinkParts(argv[2:3])
+    parts = ReadParts(argv[2:3])
     shops_file_name = '%s/%s.%08x.shops' % (
         FLAGS.cachedir,
         os.path.splitext(os.path.basename(argv[2]))[0],
@@ -223,6 +224,17 @@ def OptimizeCommand(argv):
 
   else:
     ReportError('Optimize needs exactly one argument.')
+
+def ReadParts(filenames):
+  collector = part_collector.PartCollector()
+  for filename in filenames:
+    if filename.endswith('.xml'):
+      wanted_list.CollectBricklinkParts(filename, collector)
+    elif filename.endswith('.lxf'):
+      lfxml.CollectBricklinkParts(filename, collector)
+    else:
+      print 'Unknown file type for file %s' % filename
+  return collector.Parts()
 
 def main(argv):
   try:
