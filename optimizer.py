@@ -38,6 +38,7 @@ import os.path
 import re
 import sys
 import subprocess
+import unicodedata
 
 import lfxml
 import gflags
@@ -188,7 +189,7 @@ class OptimizerBase(object):
 
   def UnitPrice(self, shop, part):
     for s in self._shops_for_parts[part]:
-      if s['shop_name'] == shop:
+      if s['shop_name'] == str(shop):
         return s['unit_price']
     return None
         
@@ -436,12 +437,12 @@ class GlpkSolver(OptimizerBase):
     for line in f:
       shop_match = shop_re.search(line)
       if shop_match:
-        shop_name = shop_match.group(1)
+        shop_name = GlpkSolver._TrimQuotes(shop_match.group(1))
         continue
       brick_match = brick_re.search(line)
       if brick_match:
         brick = brick_match.group(1)
-        shop_name = brick_match.group(2)
+        shop_name = GlpkSolver._TrimQuotes(brick_match.group(2))
         continue
       qty_match = qty_re.match(line)
       if qty_match:
@@ -476,6 +477,12 @@ class GlpkSolver(OptimizerBase):
     f.write(';\n\n')
     f.write('end;\n')
 
+  @staticmethod
+  def _TrimQuotes(s):
+    if s.startswith("'") and s.endswith("'"):
+      return s[1:-1]
+    else:
+	  return s
 
 def CreateOptimizer():
   if FLAGS.mode == 'builtin':
