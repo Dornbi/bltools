@@ -260,6 +260,7 @@ class OptimizerBase(object):
       existing_shops = (
           set(s['shop_name'] for s in shops_for_parts[part])
           .intersection(critical_shops.keys()))
+      found = False
       if not existing_shops:
         # We need one more critical shop, we use the cheapest for the part.
         for s in shops_for_parts[part]:
@@ -270,7 +271,11 @@ class OptimizerBase(object):
                 'location': s['location']}
             found = True
             break
-        assert found
+        assert found, ('Element %s was not found. This can mean: 1) The part '
+                       'number or color of the element is different on '
+                       'Bricklink and LDD and the mapping must be added to '
+                       'lfxml.py 2) The part does not exist in this color.'
+                       % p)
 
     # Second, populate the supplemental list with scores.
     base_score = 10 * (
