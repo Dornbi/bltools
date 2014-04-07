@@ -212,7 +212,8 @@ def OptimizeCommand(argv):
     except NameError, e:
       ReportError(e)
 
-    opt.Load(parts, argv[2], shops_file_name)    
+    allow_used = AllowedUsedBricks(parts)
+    opt.Load(parts, argv[2], shops_file_name, allow_used)
     output.PrintShopsText(opt)
     opt.Run()
     output.PrintOrdersText(opt, FLAGS.shop_fix_cost)
@@ -220,7 +221,7 @@ def OptimizeCommand(argv):
     if FLAGS.output_html:
       output.PrintAllHtml(
           opt, FLAGS.shop_fix_cost, argv[2],
-          AllowedUsedBricks(parts), FLAGS.output_html)
+          allow_used, FLAGS.output_html)
 
   else:
     ReportError('Optimize needs exactly one argument.')
