@@ -117,6 +117,7 @@ TRANSLATE_COLORS = {
     '3'   : '33',  # Light Yellow
     '301' : '22',  # Chrome Silver
     '308' : '120', # Dark Brown
+    '315' : '67',  # Metallic Silver
     '36'  : '96',  # Very Light Orange
     '37'  : '36',  # Bright Green
     '38'  : '68',  # Dark Orange
