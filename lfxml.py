@@ -248,7 +248,7 @@ class LxfmlPartCollector(xml.sax.handler.ContentHandler):
           part_id = TRANSLATE_PARTS[part_id]
         self._collector.AddPart(part_id, color_id)
       else:
-        print 'Unknown color: %s for part %s' % color_id, part_id
+        print 'Unknown color: %s for part %s' % (color_id, part_id)
 
 
 def CollectBricklinkParts(filename, collector):

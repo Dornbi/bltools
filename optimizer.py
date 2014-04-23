@@ -276,7 +276,7 @@ class OptimizerBase(object):
                        'number or color of the element is different on '
                        'Bricklink and LDD and the mapping must be added to '
                        'lfxml.py 2) The part does not exist in this color.'
-                       % part)
+                       % str(p))
 
     # Second, populate the supplemental list with scores.
     base_score = 10 * (
