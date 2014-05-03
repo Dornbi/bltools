@@ -79,7 +79,7 @@ def CollectBricklinkParts(filename, collector):
   finally:
     f.close()
 
-def WantedList(parts_dict, allow_used=[], extra_tags=None):
+def WantedList(parts_dict, extra_tags=None):
   result = ''
   result += '<INVENTORY>\n'
   for key in sorted(parts_dict):
@@ -89,8 +89,8 @@ def WantedList(parts_dict, allow_used=[], extra_tags=None):
     result += '<COLOR>%s</COLOR>' % key.split('-')[1]
     result += '<MINQTY>%s</MINQTY>\n' % parts_dict[key]
     result += '<NOTIFY>N</NOTIFY>'
-    if key not in allow_used:
-      result += '<CONDITION>N</CONDITION>'
+    if key.split('-')[2] in ('N', 'U'):
+      result += '<CONDITION>%s</CONDITION>' % key.split('-')[2]
     if extra_tags:
       result += extra_tags
     result += '</ITEM>\n'

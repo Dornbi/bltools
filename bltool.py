@@ -183,7 +183,7 @@ def ListCommand(argv):
       extra_tags = '<WANTEDLISTID>%s</WANTEDLISTID>' % FLAGS.wanted_list_id
     sys.stdout.write('<!-- Total parts: %s -->\n' % count)
     sys.stdout.write(
-        wanted_list.WantedList(parts, AllowedUsedBricks(parts), extra_tags))
+        wanted_list.WantedList(parts, extra_tags))
   else:
     ReportError('Not enough args for list.')
     
@@ -220,8 +220,7 @@ def OptimizeCommand(argv):
     
     if FLAGS.output_html:
       output.PrintAllHtml(
-          opt, FLAGS.shop_fix_cost, argv[2],
-          allow_used, FLAGS.output_html)
+          opt, FLAGS.shop_fix_cost, argv[2], FLAGS.output_html)
 
   else:
     ReportError('Optimize needs exactly one argument.')

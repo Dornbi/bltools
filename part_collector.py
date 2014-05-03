@@ -35,8 +35,8 @@ class PartCollector:
     self._parts = {}
     self._part_ids = set()
 
-  def AddPart(self, part_id, color_id, quantity = 1):
-    key = '%s-%s' % (part_id, color_id)
+  def AddPart(self, part_id, color_id, quantity = 1, condition = 'A'):
+    key = '%s-%s-%s' % (part_id, color_id, condition)
     self._parts[key] = self._parts.get(key, 0) + quantity
     self._part_ids.add(part_id)
 

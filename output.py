@@ -166,7 +166,7 @@ ORDER_SHOPHEAD = """
 ORDER_ROWHEAD = """
 <tr class="head">
 <td>Part<br/>(id-color)</td>
-<td>Allow<br/>used?</td>
+<td>Condition</td>
 <td>Available<br/>in shops</td>
 <td class="rightalign">Quantity<br/>needed</td>
 <td class="rightalign">Quantity<br/>on order</td>
@@ -228,9 +228,8 @@ UNSELECTED_ROW = """
 SHOP_LINK = 'http://www.bricklink.com/store.asp?p=%s'
 CATALOG_LINK = 'http://www.bricklink.com/catalogItem.asp?P=%s&colorID=%s'
 
-PART_LINK_NEW = (
-    'http://www.bricklink.com/search.asp?Q=%s&colorID=%s&invNew=N')
 PART_LINK = 'http://www.bricklink.com/search.asp?Q=%s&colorID=%s'
+PART_COND = '&invNew=%s'
 
 def LeftPad(v, width):
   s = str(v)
@@ -257,8 +256,12 @@ def PrintShopsText(optimizer):
 def PrintOrdersText(optimizer, shop_fix_cost):
   print 'Orders:'
   orders = optimizer.Orders()
+  total_netto  = 0
+  total_brutto = 0
   for shop in sorted(orders):
     shop_total = optimizer.NetShopTotal(shop)
+    total_netto  += shop_total
+    total_brutto += shop_fix_cost
     print ' %s: (Total %s, Gross %s)' % (
         RightPad(shop, 20),
         LeftPad('%.2f' % shop_total, 8),
@@ -266,17 +269,17 @@ def PrintOrdersText(optimizer, shop_fix_cost):
     for part in orders[shop]:
       unit_price = optimizer.UnitPrice(shop, part)
       num_bricks = orders[shop][part]
-      print '  %s: %s (Unit price %s, Total %s)' % (
+      print '  %-15s: %s (Unit price %s, Total %s)' % (
           RightPad(part, 10),
           LeftPad(num_bricks, 4),
           LeftPad('%.2f' % unit_price, 8),
           LeftPad('%.2f' % (unit_price * num_bricks), 8))
+  print "Total: %10.2f, Gross %10.2f" % (total_netto, total_brutto)
 
 def PrintAllHtml(
     optimizer,
     shop_fix_cost,
     ldd_file_name,
-    allow_used,
     output_html_file_name):
   f = open(output_html_file_name, "w")
   try:
@@ -297,11 +300,11 @@ def PrintAllHtml(
         num_all_parts += num_parts
         num_shop_part_types += 1
         num_all_part_types += 1
-        used = '-'
-        link = MakeLink(PART_LINK_NEW % tuple(part.split('-')), part)
-        if part in allow_used:
-          used = 'Y'
-          link = MakeLink(PART_LINK % tuple(part.split('-')), part)
+        used = '&nbsp;'
+        link = MakeLink(PART_LINK % tuple(part.split('-')[0:2]), part)
+        if (part.split('-')[2] in ('U', 'N')):
+          used = part.split('-')[2]
+          link = link + PART_COND % used
         shop_fragment += ORDER_ROW % (
             link,
             used,
@@ -324,8 +327,7 @@ def PrintAllHtml(
       escaped_xml = ORDER_XML % (
           num_shop_part_types + 2,
           cgi.escape(
-              wanted_list.WantedList(orders[shop],
-              allow_used, REPLACE_TEXT)))
+              wanted_list.WantedList(orders[shop], REPLACE_TEXT)))
       escaped_xml = escaped_xml.replace(
           REPLACE_TEXT,
           ORDER_XML_DYNAMIC % shop)
