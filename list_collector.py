@@ -1,6 +1,8 @@
 #!/usr/bin/python
+# -*- coding: utf-8
 #
 # Copyright (c) 2011-2012, Peter Dornbach.
+#               2014-2014, Frank Löffler
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,27 +29,18 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
-Collects BrickLink parts.
+Collects Bricklink wanted list information.
 """
 
-import item
-
-class PartCollector:
+class ListCollector:
   def __init__(self):
-    self._parts = {}
+    self._lists = {}
 
-  def AddPart(self, part_id, color_id=0, quantity = 1, condition = 'A', type = 'P'):
-    # parts (bricks ect.) - usually something with a color
-    if (type == 'P'):
-      key = item.item('%s#%s#%s#%s' % (type, part_id, condition, color_id))
-    # everything else (instructions, boxes, sets) - something without color
-    else:
-      key = item.item('%s#%s#%s' % (type, part_id, condition))
-    self._parts[key] = self._parts.get(key, 0) + quantity
+  def AddList(self, list_id, list_name):
+    self._lists[list_id] = {"name": list_name}
 
-  def AddPartbyKey(self, key, quantity = 1):
-    self._parts[key] = self._parts.get(key, 0) + quantity
+  def Lists(self):
+    return self._lists
 
-  def Parts(self):
-    return self._parts
-
+  def ListsbyName(self):
+    return {v["name"]:k for k, v in self._lists.items()}

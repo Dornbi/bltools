@@ -55,10 +55,14 @@ class WantedListPartCollector(xml.sax.handler.ContentHandler):
     upperName = name.upper()
     if upperName == 'ITEM':
       # We've finished the item, so collect it.
+      type = self._current_part_dict['ITEMTYPE']
       part_id = self._current_part_dict['ITEMID']
-      color_id = self._current_part_dict['COLOR']
+      if (type == 'P'):
+        color_id = self._current_part_dict['COLOR']
+      else:
+        color_id = 0
       quantity = int(self._current_part_dict['MINQTY'] or 1)
-      self._collector.AddPart(part_id, color_id, quantity)
+      self._collector.AddPart(part_id, color_id, quantity, type=type)
     elif self._current_elem_name != '':
       # This is the end of a (probably nested) element, so add its content
       # to the part dict.
@@ -84,13 +88,14 @@ def WantedList(parts_dict, extra_tags=None):
   result += '<INVENTORY>\n'
   for key in sorted(parts_dict):
     result += '<ITEM>'
-    result += '<ITEMTYPE>P</ITEMTYPE>'
-    result += '<ITEMID>%s</ITEMID>' % key.split('-')[0]
-    result += '<COLOR>%s</COLOR>' % key.split('-')[1]
+    result += '<ITEMTYPE>%s</ITEMTYPE>' % key.type()
+    result += '<ITEMID>%s</ITEMID>' % key.id()
+    if (key.type() == 'P'):
+      result += '<COLOR>%s</COLOR>' % key.color()
     result += '<MINQTY>%s</MINQTY>\n' % parts_dict[key]
     result += '<NOTIFY>N</NOTIFY>'
-    if key.split('-')[2] in ('N', 'U'):
-      result += '<CONDITION>%s</CONDITION>' % key.split('-')[2]
+    if key.condition() in ('N', 'U'):
+      result += '<CONDITION>%s</CONDITION>' % key.condition()
     if extra_tags:
       result += extra_tags
     result += '</ITEM>\n'

@@ -91,6 +91,8 @@ import os.path
 import sys
 
 import fetch_shops
+import fetch_wanted_list
+import fetch_inventory
 import gflags
 import lfxml
 import optimizer
@@ -176,7 +178,12 @@ def HelpCommand(argv):
   
 def ListCommand(argv):
   if len(argv) >= 3:
-    parts = ReadParts(argv[2:])
+    if argv[2] == "wlist":
+      parts = fetch_wanted_list.FetchListInfo()
+    elif argv[2] == 'store':
+      parts = fetch_inventory.FetchStoreInfo()
+    else:
+      parts = ReadParts(argv[2:])
     count = sum(parts[k] for k in parts)
     extra_tags = ''
     if FLAGS.wanted_list_id:

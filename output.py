@@ -301,9 +301,9 @@ def PrintAllHtml(
         num_shop_part_types += 1
         num_all_part_types += 1
         used = '&nbsp;'
-        link = MakeLink(PART_LINK % tuple(part.split('-')[0:2]), part)
-        if (part.split('-')[2] in ('U', 'N')):
-          used = part.split('-')[2]
+        link = MakeLink(PART_LINK % tuple(part.id(), part.color()), part)
+        if (part.condition() in ('U', 'N')):
+          used = part.condition()
           link = link + PART_COND % used
         shop_fragment += ORDER_ROW % (
             link,

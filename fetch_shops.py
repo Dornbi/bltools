@@ -127,8 +127,8 @@ def FetchShopInfo(part_dict, filename):
   sys.stdout.flush()
   for part in part_dict:
     url_params = {
-      'part': part.split('-')[0],
-      'color': part.split('-')[1],
+      'part': part.id(),
+      'color': part.color(),
       'num_shops': FLAGS.num_shops}
     conn = urllib.urlopen(SHOP_LIST_URL % url_params)
     parser = ResultHtmlParser(str(part))

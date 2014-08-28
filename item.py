@@ -1,0 +1,9 @@
+class item(str):
+  def type(self):
+    return self.split('#')[0]
+  def id(self):
+    return self.split('#')[1]
+  def condition(self):
+    return self.split('#')[2]
+  def color(self):
+    return self.split('#')[3]
