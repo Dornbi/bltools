@@ -43,8 +43,8 @@ listed in the LDD file.
 Optimize does the following:
 
 1. If not cached yet, fetches prices and shops for all bricks in the LDD model
-   and store it a cache file. This will be also refetched if the model changes
-   or if a refetch is forced.
+   and stores them in cache files. This cache has a default "life time" of one
+   day, which can be changed with the --shopcache_timeout option.
 
 2. Runs the optimizer. There are two optimizers:
    --mode=builtin (default)
@@ -110,11 +110,10 @@ gflags.DEFINE_string(
     'cachedir', '.bltools-cache',
     'Directory where cached files are saved.')
 
-gflags.DEFINE_boolean(
-    'refetch_shops', False,
-    'Refetches shop info even if the cached info exists. Note that '
-    'if parameters changed then the shop info will be refetched '
-    'regardless the value of this flag.')
+gflags.DEFINE_integer(
+    'shopcache_timeout', 60*60*24,
+    'Sets the timeout for the cache for shop data of parts, in seconds. '
+    'Default is one day (60*60*24)')
 
 gflags.DEFINE_list(
     'include_used', [],
@@ -145,7 +144,7 @@ COMMANDS = {
       'usage': '[<flags>] optimize <LDD_file>',
       'desc': 'Fetches BrickLink shops and print optimal sellers (expensive).',
       'flags': [
-          'output_html', 'cachedir', 'refetch_shops', 'include_used',
+          'output_html', 'cachedir', 'shopcache_timeout', 'include_used',
           'exclude_used', 'mode', 'rerun_solver', 'multiple', 'exclude_shops',
           'include_shops', 'include_countries', 'exclude_countries',
           'shop_fix_cost', 'max_shops', 'consider-shops', 'glpk_limit_seconds'],
@@ -197,22 +196,11 @@ def ListCommand(argv):
 def OptimizeCommand(argv):
   if len(argv) == 3:
     parts = ReadParts(argv[2:3])
-    shops_file_name = '%s/%s.%08x.shops' % (
-        FLAGS.cachedir,
-        os.path.splitext(os.path.basename(argv[2]))[0],
-        hash(str(parts)) & 0xffffffff)
-    if FLAGS.refetch_shops:
-      print 'Forced refetch of shops file %s' % shops_file_name
-      fetch_shops.FetchShopInfo(parts, shops_file_name)
-    elif os.path.exists(shops_file_name):
-      print 'Using cached shops file %s' % shops_file_name
-    else:
-      print 'Cached shops file %s not found, refetching' % shops_file_name
-      try:
-        os.makedirs(FLAGS.cachedir)
-      except OSError:
-        pass
-      fetch_shops.FetchShopInfo(parts, shops_file_name)
+    try:
+      os.makedirs(FLAGS.cachedir)
+    except OSError:
+      pass
+    shop_data = fetch_shops.FetchShopInfo(parts)
       
     try:
       opt = optimizer.CreateOptimizer()
@@ -220,7 +208,7 @@ def OptimizeCommand(argv):
       ReportError(e)
 
     allow_used = AllowedUsedBricks(parts)
-    opt.Load(parts, argv[2], shops_file_name, allow_used)
+    opt.Load(parts, argv[2], shop_data, allow_used)
     output.PrintShopsText(opt)
     opt.Run()
     output.PrintOrdersText(opt, FLAGS.shop_fix_cost)

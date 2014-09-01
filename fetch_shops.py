@@ -33,7 +33,9 @@ Fetches shop offers for items.
 import json
 import re
 import sys
+import os
 import urllib
+import datetime
 
 import gflags
 from HTMLParser import HTMLParser
@@ -119,25 +121,42 @@ class ResultHtmlParser(HTMLParser):
         key=lambda x: x['unit_price'])
 
 
-def FetchShopInfo(part_dict, filename):
-  outfile = open(filename, 'w')
+def FetchShopInfo(part_dict):
 
   shop_items = {}
   sys.stdout.write('Fetching offers...')
   sys.stdout.flush()
   for part in part_dict:
-    url_params = {
-      'part': part.id(),
-      'color': part.color(),
-      'num_shops': FLAGS.num_shops}
-    conn = urllib.urlopen(SHOP_LIST_URL % url_params)
-    parser = ResultHtmlParser(str(part))
-    parser.feed(conn.read())
-    shop_items[part] = parser.Result()
+    partfile_name = '%s/%s.shopdata' % (FLAGS.cachedir, part)
+    try:
+      partfile_lastmod = datetime.datetime.fromtimestamp(os.path.getmtime(partfile_name))
+    except:
+      # If file cannot be accessed for any reason...
+      partfile_lastmod = -1
     sys.stdout.write('\rFetching items... %d of %d'
                      % (len(shop_items), len(part_dict)))
+    if (partfile_lastmod == -1 or
+        (datetime.datetime.now() - partfile_lastmod).total_seconds() > FLAGS.shopcache_timeout):
+      url_params = {
+        'part': part.id(),
+        'color': part.color(),
+        'num_shops': FLAGS.num_shops}
+      conn = urllib.urlopen(SHOP_LIST_URL % url_params)
+      parser = ResultHtmlParser(str(part))
+      parser.feed(conn.read())
+      shop_items[part] = parser.Result()
+      partfile = open(partfile_name, "w")
+      partfile.write(json.dumps(parser.Result()))
+      partfile.close()
+    else:
+      sys.stdout.write(" (from cache)")
+      partfile = open(partfile_name, "r")
+      try:
+        data = json.loads(partfile.read())
+      finally:
+        partfile.close()
+      shop_items[part] = data
     sys.stdout.flush()
     
-  outfile.write(json.dumps(shop_items))
-  outfile.close()
   sys.stdout.write('\n')
+  return shop_items

@@ -39,10 +39,10 @@ class PartCollector:
   def AddPart(self, part_id, color_id=0, quantity = 1, condition = 'A', type = 'P'):
     # parts (bricks ect.) - usually something with a color
     if (type == 'P'):
-      key = item.item('%s#%s#%s#%s' % (type, part_id, condition, color_id))
+      key = item.item('%s__%s__%s__%s' % (type, part_id, condition, color_id))
     # everything else (instructions, boxes, sets) - something without color
     else:
-      key = item.item('%s#%s#%s' % (type, part_id, condition))
+      key = item.item('%s__%s__%s' % (type, part_id, condition))
     self._parts[key] = self._parts.get(key, 0) + quantity
 
   def AddPartbyKey(self, key, quantity = 1):

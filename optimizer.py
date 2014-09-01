@@ -148,19 +148,17 @@ AMPL_UNAVAILABLE_PRICE = 1000;
 
 class OptimizerBase(object):
   
-  def Load(self, parts, ldd_file_name, shops_file_name, allow_used=[]):
+  def Load(self, parts, ldd_file_name, shop_data, allow_used=[]):
     self._ldd_file_name = ldd_file_name
     # part: '%s-%s' % part_no, color
 
     # dict str(part) -> int(quantity)
     self._parts_needed = self._GetPartsNeeded(parts, allow_used)
-    unfiltered_shops_for_parts = self._LoadshopData(shops_file_name)
-    assert set(self._parts_needed.keys()).issubset(
-        unfiltered_shops_for_parts.keys())
+    assert set(self._parts_needed.keys()).issubset(shop_data.keys())
 
     # dict str(part) -> [dict(quantity, unit_price, shop_name)]
     self._shops_for_parts = self._FilterOffers(
-        self._parts_needed, unfiltered_shops_for_parts, allow_used)
+        self._parts_needed, shop_data, allow_used)
 
     self._CalculateCandidateShops(self._shops_for_parts, self._parts_needed)
     self._shops_for_parts = self._RemoveExcludedshops(
@@ -209,15 +207,6 @@ class OptimizerBase(object):
     for p in parts_needed:
       parts_needed[p] *= FLAGS.multiple
     return parts_needed
-
-  @staticmethod
-  def _LoadshopData(shops_for_parts_file_name):
-    shop_file = open(shops_for_parts_file_name, 'r')
-    try:
-      shops_for_parts = json.loads(shop_file.read())
-    finally:
-      shop_file.close()
-    return shops_for_parts
 
   @staticmethod
   def _FilterOffers(parts_needed, shops_for_parts, allow_used):
