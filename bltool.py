@@ -200,7 +200,12 @@ def ListCommand(argv):
     
 def OptimizeCommand(argv):
   if len(argv) == 3:
-    parts = ReadParts(argv[2:3])
+    if argv[2] == "wlist":
+      parts = fetch_wanted_list.FetchListInfo()
+    elif argv[2] == 'store':
+      parts = fetch_inventory.FetchStoreInfo()
+    else:
+      parts = ReadParts(argv[2:3])
     try:
       os.makedirs(FLAGS.cachedir)
     except OSError:
