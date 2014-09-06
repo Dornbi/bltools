@@ -148,6 +148,7 @@ def FetchShopInfo(part_dict):
       partfile = open(partfile_name, "w")
       partfile.write(json.dumps(parser.Result()))
       partfile.close()
+      sys.stdout.write('             ')
     else:
       sys.stdout.write(" (from cache)")
       partfile = open(partfile_name, "r")

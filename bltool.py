@@ -129,6 +129,11 @@ gflags.DEFINE_string(
     'wanted_list_id', '',
     'Wanted list id for the output wanted list, or blank.')
 
+gflags.DEFINE_list(
+    'inventory', [],
+    'Specifies XML files contaning existing inventory, which would be treated '
+    'such for potential orders')
+
 COMMANDS = {
   'help': {
       'usage': 'help',

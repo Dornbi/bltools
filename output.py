@@ -301,7 +301,7 @@ def PrintAllHtml(
         num_shop_part_types += 1
         num_all_part_types += 1
         used = '&nbsp;'
-        link = MakeLink(PART_LINK % tuple(part.id(), part.color()), part)
+        link = MakeLink(PART_LINK % (part.id(), part.color()), part)
         if (part.condition() in ('U', 'N')):
           used = part.condition()
           link = link + PART_COND % used

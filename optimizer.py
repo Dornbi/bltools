@@ -346,6 +346,8 @@ class BuiltinOptimizer(OptimizerBase):
           if p and p < best_price:
             best_price = p
             best_list = shops
+        else:
+          assert False, "You need to use at least %d in --max_shops." % len(shops)
       sys.stdout.write('\rOptimizing... %d%%' % (k + 1))
       sys.stdout.flush()
     sys.stdout.write('\n')
