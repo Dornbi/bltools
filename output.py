@@ -121,11 +121,11 @@ TOTAL_SKELETON = """
 </tr>
 <tr>
 <td>Net cost (without shipping):</td>
-<td class="rightalign">%.2f</td>
+<td class="rightalign"><b>%.2f</b></td>
 </tr>
 <tr>
 <td>Gross cost (shipping fee %.2f / shop):</td>
-<td class="rightalign">%.2f</td>
+<td class="rightalign"><b>%.2f</b></td>
 </tr>
 <tr>
 <tr>
@@ -152,11 +152,11 @@ ORDER_SHOPHEAD = """
 </tr>
 <tr>
 <td colspan="6">Net cost (without shipping):</td>
-<td class="rightalign">%.2f</td>
+<td class="rightalign"><b>%.2f</b></td>
 </tr>
 <tr>
 <td colspan="6">Gross cost (with shipping):</td>
-<td class="rightalign">%.2f</td>
+<td class="rightalign"><b>%.2f</b></td>
 <td>Update wanted list ID:
 <input type="text" onchange="update(this, 'wanted_%s')"/>
 </td>
@@ -229,6 +229,7 @@ SHOP_LINK = 'http://www.bricklink.com/store.asp?p=%s'
 CATALOG_LINK = 'http://www.bricklink.com/catalogItem.asp?P=%s&colorID=%s'
 
 PART_LINK = 'http://www.bricklink.com/search.asp?Q=%s&colorID=%s'
+PART_LINK_NOCOLOR = 'http://www.bricklink.com/search.asp?Q=%s'
 PART_COND = '&invNew=%s'
 
 def LeftPad(v, width):
@@ -261,7 +262,7 @@ def PrintOrdersText(optimizer, shop_fix_cost):
   for shop in sorted(orders):
     shop_total = optimizer.NetShopTotal(shop)
     total_netto  += shop_total
-    total_brutto += shop_fix_cost
+    total_brutto += shop_total + shop_fix_cost
     print ' %s: (Total %s, Gross %s)' % (
         RightPad(shop, 20),
         LeftPad('%.2f' % shop_total, 8),
@@ -301,10 +302,14 @@ def PrintAllHtml(
         num_shop_part_types += 1
         num_all_part_types += 1
         used = '&nbsp;'
-        link = MakeLink(PART_LINK % (part.id(), part.color()), part)
+        if (part.type() == 'P'):
+          link = PART_LINK % (part.id(), part.color())
+        else:
+          link = PART_LINK_NOCOLOR % (part.id())
         if (part.condition() in ('U', 'N')):
           used = part.condition()
           link = link + PART_COND % used
+        link = MakeLink(link, part)
         shop_fragment += ORDER_ROW % (
             link,
             used,
