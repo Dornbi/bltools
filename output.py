@@ -275,7 +275,7 @@ def PrintOrdersText(optimizer, shop_fix_cost):
           LeftPad(num_bricks, 4),
           LeftPad('%.2f' % unit_price, 8),
           LeftPad('%.2f' % (unit_price * num_bricks), 8))
-  print "Total: %10.2f, Gross %10.2f" % (total_netto, total_brutto)
+  print "Total: %10.2f, Gross %10.2f, Shops: %3d" % (total_netto, total_brutto, len(orders))
 
 def PrintAllHtml(
     optimizer,

@@ -46,14 +46,23 @@ gflags.DEFINE_integer(
     'num_shops', 500,
     'Number of shops to fetch. Note that bricklink won\'t allow more than 500.')
 
-SHOP_LIST_URL = (
+SHOP_LIST_URL_QUERY = (
   'http://www.bricklink.com/search.asp'
   '?pg=1'
   '&q=%(part)s'
-  '&colorID=%(color)s'
+  '&sz=%(num_shops)d'
+  '&searchSort=P')
+SHOP_LIST_URL_ITEMID = (
+  'http://www.bricklink.com/search.asp'
+  '?pg=1'
+  '&itemID=%(part)s'
   '&sz=%(num_shops)d'
   '&searchSort=P')
 SHOP_NAME_REGEX = r'/store\.asp\?p=(.*)&itemID=.*'
+
+CATALOG_URL = (
+  'http://www.bricklink.com/catalogItem.asp?%(type)s=%(part)s' )
+CATALOG_ITEM_ID_REGEX = r'<A HREF="search\.asp\?itemID=([^"]*)'
 
 FLOAT_CHARS = set('0123456789.')
 INT_CHARS = set('0123456789')
@@ -138,16 +147,31 @@ def FetchShopInfo(part_dict):
     if (partfile_lastmod == -1 or
         (datetime.datetime.now() - partfile_lastmod).total_seconds() > FLAGS.shopcache_timeout):
       sys.stdout.write('             ')
-      url_params = {
-        'part': part.id(),
-        'num_shops': FLAGS.num_shops}
-      if (part.type() == 'P'):
-        url_params['color'] = part.color()
+      # get itemID first. We have to do this because the search otherwise brings
+      # up all kinds of items for instructions or boxes (the actual sets)
+      URL = CATALOG_URL % {'type': part.type(), 'part': part.id() }
+      conn = urllib.urlopen(URL)
+      html = conn.read()
+      m = re.search(CATALOG_ITEM_ID_REGEX, html)
+      part_id = None
+      if (m):
+        part_id = m.group(1)
+        url_params = {
+          'part': part_id,
+          'num_shops': FLAGS.num_shops}
+        URL = SHOP_LIST_URL_ITEMID % url_params
       else:
-        url_params['color'] = 0
-      URL = SHOP_LIST_URL % url_params
+        if (part.type() != 'P'):
+          print "\nBricklink ItemID not found for %s, maybe not available?" % part
+          sys.exit(1)
+        url_params = {
+          'part': part_id,
+          'num_shops': FLAGS.num_shops}
+        URL = SHOP_LIST_URL_QUERY % url_params
       if (part.condition() != 'A'):
         URL += "&invNew=%s" % part.condition()
+      if (part.type == 'P'):
+        URL = "%s&colorID=%s'" % (URL, part.color())
       conn = urllib.urlopen(URL)
       parser = ResultHtmlParser(str(part))
       parser.feed(conn.read())
