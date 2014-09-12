@@ -199,7 +199,7 @@ def ListCommand(argv):
     ReportError('Not enough args for list.')
     
 def OptimizeCommand(argv):
-  if len(argv) == 3:
+  if len(argv) >= 3:
     if argv[2] == "wlist":
       parts = fetch_wanted_list.FetchListInfo()
     # This arguably isn't the most useful option, but it works and in theory it
@@ -207,12 +207,17 @@ def OptimizeCommand(argv):
     elif argv[2] == 'store':
       parts = fetch_inventory.FetchStoreInfo()
     else:
-      parts = ReadParts(argv[2:3])
+      parts = ReadParts(argv[2:])
     try:
       os.makedirs(FLAGS.cachedir)
     except OSError:
       pass
-
+    # reduce wanted parts by parts indicated to be already present
+    if (FLAGS.inventory):
+      iparts = ReadParts(FLAGS.inventory)
+      collector = part_collector.PartCollector()
+      collector.InitParts(parts)
+      parts = collector.Subtract(iparts)
     shop_data = fetch_shops.FetchShopInfo(parts)
       
     try:
