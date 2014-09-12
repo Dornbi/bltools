@@ -165,7 +165,7 @@ ORDER_SHOPHEAD = """
 
 ORDER_ROWHEAD = """
 <tr class="head">
-<td>Part<br/>(id-color)</td>
+<td>Part<br/>(type-id-condition-color)</td>
 <td>Condition</td>
 <td>Available<br/>in shops</td>
 <td class="rightalign">Quantity<br/>needed</td>
