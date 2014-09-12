@@ -124,8 +124,13 @@ class ResultHtmlParser(HTMLParser):
     if self._state == 3:
       if data == 'N/A':
         self._current_part_dict['CONDITION'] = 'A'
+      elif data == 'New':
+        self._current_part_dict['CONDITION'] = 'N'
+      elif data == 'Used':
+        self._current_part_dict['CONDITION'] = 'U'
       else:
-        self._current_part_dict['CONDITION'] = data
+        print("Unknown condition %s found on BL." % data);
+        sys.exit(1)
       self._state = 4
 
   def Result(self):
@@ -261,3 +266,4 @@ def FetchListInfo():
   sys.stdout.write('\n')
 
   return collector.Parts()
+
