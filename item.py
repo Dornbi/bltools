@@ -7,3 +7,8 @@ class item(str):
     return self.split('__')[2]
   def color(self):
     return self.split('__')[3]
+
+  def set_condition(self, cond):
+    my_words = self.split('__')
+    my_words[2] = cond
+    return "__".join(my_words)
