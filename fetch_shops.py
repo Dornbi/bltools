@@ -170,7 +170,7 @@ def FetchShopInfo(part_dict):
         URL = SHOP_LIST_URL_QUERY % url_params
       if (part.condition() != 'A'):
         URL += "&invNew=%s" % part.condition()
-      if (part.type == 'P'):
+      if (part.type() == 'P'):
         URL = "%s&colorID=%s'" % (URL, part.color())
       conn = urllib.urlopen(URL)
       parser = ResultHtmlParser(str(part))
