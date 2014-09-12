@@ -341,8 +341,8 @@ class BuiltinOptimizer(OptimizerBase):
     sys.stdout.write('Optimizing...')
     sys.stdout.flush()
     total = 2 ** FLAGS.consider_shops
-    for k in xrange(100):
-      for i in xrange(total * k / 100, total * (k+1) / 100):
+    for k in reversed(xrange(100)):
+      for i in reversed(xrange(total * k / 100, total * (k+1) / 100)):
         shops = [
             self._shops.keys()[j]
             for j in xrange(len(self._shops))
@@ -354,7 +354,7 @@ class BuiltinOptimizer(OptimizerBase):
             best_list = shops
         else:
           assert False, "You need to use at least %d in --max_shops." % len(shops)
-      sys.stdout.write('\rOptimizing... %d%%' % (k + 1))
+      sys.stdout.write('\rOptimizing... %d%%, current best price: %.2f' % (100 - k, best_price))
       sys.stdout.flush()
     sys.stdout.write('\n')
     if best_list:
