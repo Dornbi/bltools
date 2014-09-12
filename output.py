@@ -294,7 +294,9 @@ def PrintAllHtml(
       num_shop_part_types = 0
       num_shop_parts = 0
       shop_fragment = ''
-      for part in sorted(orders[shop]):
+      for part in sorted(orders[shop],
+                         key=lambda p: optimizer.UnitPrice(shop, p) * orders[shop][p],
+                         reverse=True):
         unit_price = optimizer.UnitPrice(shop, part)
         num_parts = orders[shop][part]
         num_shop_parts += num_parts
