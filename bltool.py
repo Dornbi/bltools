@@ -245,7 +245,7 @@ def ReadParts(filenames):
       wanted_list.CollectBricklinkParts(filename, collector)
     elif filename.endswith('.lxf'):
       lfxml.CollectBricklinkParts(filename, collector)
-    else:
+    elif (filename != ""):
       print 'Unknown file type for file %s' % filename
   return collector.Parts()
 
