@@ -30,6 +30,7 @@
 Parses and generates a wanted list XML file.
 """
 
+import sys
 import xml.sax
 import xml.sax.handler
 
@@ -57,12 +58,16 @@ class WantedListPartCollector(xml.sax.handler.ContentHandler):
       # We've finished the item, so collect it.
       type = self._current_part_dict['ITEMTYPE']
       part_id = self._current_part_dict['ITEMID']
+      condition = self._current_part_dict.get('CONDITION', 'A')
+      if (condition not in ('A', 'N', 'U')):
+        print "unknown condition '%s' found" % condition
+        sys.exit(1)
       if (type == 'P'):
         color_id = self._current_part_dict['COLOR']
       else:
         color_id = 0
       quantity = int(self._current_part_dict['MINQTY'] or 1)
-      self._collector.AddPart(part_id, color_id, quantity, type=type)
+      self._collector.AddPart(part_id, color_id, quantity, condition=condition, type=type)
     elif self._current_elem_name != '':
       # This is the end of a (probably nested) element, so add its content
       # to the part dict.
