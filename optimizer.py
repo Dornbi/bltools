@@ -150,7 +150,6 @@ class OptimizerBase(object):
   
   def Load(self, parts, ldd_file_name, shop_data, allow_used=[]):
     self._ldd_file_name = ldd_file_name
-    # part: '%s-%s' % part_no, color
 
     # dict str(part) -> int(quantity)
     self._parts_needed = self._GetPartsNeeded(parts, allow_used)
@@ -218,7 +217,7 @@ class OptimizerBase(object):
       for s in shops_for_parts[p]:
         if (s['quantity'] >= parts_needed[p]
             and (s['condition'] == 'N'
-                or p in allow_used)
+                or p in allow_used or p.condition()=='A')
             and (not FLAGS.include_shops
                 or s['shop_name'] in FLAGS.include_shops)
             and s['shop_name'] not in FLAGS.exclude_shops
@@ -230,6 +229,9 @@ class OptimizerBase(object):
     return filtered_shops_for_parts
 
   def _CalculateCandidateShops(self, shops_for_parts, parts_needed):
+    if (len(parts_needed) == 0):
+      print "There is nothing to optimize, got an empty list."
+      sys.exit(0)
     # shops that we must take on the list to guarantee that we
     # have at least one shop for the part.
     critical_shops = {}
@@ -298,6 +300,10 @@ class OptimizerBase(object):
 
     self._critical_shops = copy.copy(critical_shops)
 
+    if (FLAGS.consider_shops <= len(critical_shops)):
+      print "You have to allow to consider at least %d shops for this query." % (
+            len(critical_shops)+1)
+      sys.exit(1)
     assert len(critical_shops) < FLAGS.consider_shops
     supplemental_list = sorted(
         (s for s in supplemental_shops),
