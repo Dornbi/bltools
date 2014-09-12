@@ -134,14 +134,20 @@ def FetchShopInfo(part_dict):
       # If file cannot be accessed for any reason...
       partfile_lastmod = -1
     sys.stdout.write('\rFetching items... %d of %d'
-                     % (len(shop_items), len(part_dict)))
+                     % (len(shop_items)+1, len(part_dict)))
     if (partfile_lastmod == -1 or
         (datetime.datetime.now() - partfile_lastmod).total_seconds() > FLAGS.shopcache_timeout):
       url_params = {
         'part': part.id(),
-        'color': part.color(),
         'num_shops': FLAGS.num_shops}
-      conn = urllib.urlopen(SHOP_LIST_URL % url_params)
+      if (part.type() == 'P'):
+        url_params['color'] = part.color()
+      else:
+        url_params['color'] = 0
+      URL = SHOP_LIST_URL % url_params
+      if (part.condition() != 'A'):
+        URL += "&invNew=%s" % part.condition()
+      conn = urllib.urlopen(URL)
       parser = ResultHtmlParser(str(part))
       parser.feed(conn.read())
       shop_items[part] = parser.Result()
