@@ -290,7 +290,7 @@ def PrintAllHtml(
     orders_fragment = ''
     num_all_part_types = 0
     num_all_parts = 0
-    for shop in orders:
+    for shop in sorted(orders, key=optimizer.NetShopTotal, reverse=True):
       num_shop_part_types = 0
       num_shop_parts = 0
       shop_fragment = ''
