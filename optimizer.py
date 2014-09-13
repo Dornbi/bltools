@@ -42,6 +42,7 @@ import unicodedata
 
 import lfxml
 import gflags
+import item
 
 FLAGS = gflags.FLAGS
 
@@ -429,7 +430,7 @@ class GlpkSolver(OptimizerBase):
   def _Parse(self, f):
     self._order_bricks = {}
     shop_re = re.compile(r'order_shop\[(.*)\]')
-    brick_re = re.compile(r'order_brick\[\'(.*)\',(.*)\]')
+    brick_re = re.compile(r'order_brick\[(.*),(.*)\]')
     qty_re = re.compile(r'\A +\* +([0-9]+) +')
     for line in f:
       shop_match = shop_re.search(line)
@@ -438,7 +439,7 @@ class GlpkSolver(OptimizerBase):
         continue
       brick_match = brick_re.search(line)
       if brick_match:
-        brick = brick_match.group(1)
+        brick = item.item(brick_match.group(1))
         shop_name = GlpkSolver._TrimQuotes(brick_match.group(2))
         continue
       qty_match = qty_re.match(line)
