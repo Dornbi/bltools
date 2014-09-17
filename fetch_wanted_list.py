@@ -46,7 +46,7 @@ from HTMLParser import HTMLParser
 FLAGS  = gflags.FLAGS
 
 gflags.DEFINE_multistring(
-    'wanted_list', "default",
+    'wanted_list', 'default',
     'The name of the wanted list, to be fetched from Bricklink. Can be '
     'specified multiple times to concatenate lists.')
 gflags.DEFINE_string(
@@ -73,7 +73,9 @@ SHOP_LIST_URL = (
 FLOAT_CHARS = set('0123456789.')
 INT_CHARS = set('0123456789')
 
-# parse parts in a wanted list
+"""
+Parses parts in a wanted list.
+"""
 class ResultHtmlParser(HTMLParser):
   def __init__(self, collector = None):
     if (collector == None):
@@ -191,7 +193,7 @@ def FetchListInfo():
     print "Could not connect to BrickLink. Check your connection and try again."
     sys.exit(1)
   html = conn.read()
-  # For now, discart output and assume we are logged in - proceed with actual request
+  # For now, discard output and assume we are logged in - proceed with actual request
   # TODO: check that we are in fact logged in
   # Next, get all wanted lists, in particular their IDs, which have to be used in queries
   try:
