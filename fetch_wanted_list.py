@@ -171,16 +171,10 @@ class ListHtmlParser(HTMLParser):
   def ResultbyName(self):
     return self._collector.ListsbyName()
 
-''' This will at some point fetch the page. Right now it reads it from a file.'''
-def FetchListInfo():
-  sys.stdout.write('Fetching lists...'+"\n")
-
-  # First login
-  opener = login_bl.BricklinkLogin()
-  if (not opener):
-    print "Could not login to Bricklink."
-    sys.exit(1)
-  # Next, get all wanted lists, in particular their IDs, which have to be used in queries
+''' Get some information about available wanted lists on Bricklink,
+    in particular their Bricklink IDs.
+'''
+def FetchListInfo(opener):
   try:
     conn = opener.open(LIST_LISTS_URL)
   except:
@@ -191,19 +185,58 @@ def FetchListInfo():
   parser.feed(html)
   lists = parser.Result()
   listsbyName = parser.ResultbyName()
+  return (lists, listsbyName)
+
+""" Return a subset of given wanted lists that match a list of regular
+    expressions
+"""
+def MatchWantedLists(lists, regexs):
   matched_lists = {}
   for list_id in lists:
     matched = False
-    for wlist in FLAGS.wanted_list:
+    for regex in regexs:
       try:
-        m = re.match("("+wlist+")", lists[list_id]["name"])
+        m = re.match('('+regex+')', lists[list_id]["name"])
       except:
-        print "Wanted List '%s' is not a valid regular expression." % wlist
+        print "Wanted List \"%s\" is not a valid regular expression." % wlist
         sys.exit(1)
       if m:
         matched = True
     if (matched):
       matched_lists[list_id] = lists[list_id]["name"]
+  return matched_lists
+
+""" Fetch information about one type of things (parts/instructions/...) in a
+    given wanted list and collect what is found in part_collector
+"""
+def FetchListPartsbyType(opener, list_id, ptype, parser):
+  url_params = {
+    'type'   : ptype,
+    'list_id': list_id,
+    'size'   : 500,
+    }
+  try:
+    conn = opener.open(SHOP_LIST_URL % url_params)
+  except:
+    print 'Could not connect to BrickLink. Check your connection and try again.'
+    sys.exit(1)
+  html = conn.read()
+  parser.feed(html)
+
+''' Fetch the parts in wanted lists from Bricklink '''
+def FetchListParts():
+  sys.stdout.write('Fetching lists...'+"\n")
+
+  # First login
+  opener = login_bl.BricklinkLogin()
+  if (not opener):
+    print 'Could not login to Bricklink.'
+    sys.exit(1)
+  # Get all wanted lists, in particular their IDs, which have to be used in queries
+  (lists, listsbyName) = FetchListInfo(opener)
+
+  # Match existing lists with command line argument (which allows for a regex)
+  matched_lists = MatchWantedLists(lists, FLAGS.wanted_list)
 
   # print some information which lists will be considered
   print "Found %d lists on bricklink, of which %d matched:" % \
@@ -218,31 +251,17 @@ def FetchListInfo():
   collector = part_collector.PartCollector()
   for list_id in sorted(matched_lists, key=matched_lists.get):
     list_name = lists[list_id]["name"]
-    sys.stdout.write(' processing '+list_name+" ("+list_id+")")
+    sys.stdout.write(' processing '+list_name+' ('+list_id+')')
     parser = ResultHtmlParser()
     # regular parts first
-    url_params = {
-      'type'   : 'P',
-      'list_id': list_id,
-      'size'   : 500,
-      }
-    try:
-      conn = opener.open(SHOP_LIST_URL % url_params)
-    except:
-      print "Could not connect to BrickLink. Check your connection and try again."
-      sys.exit(1)
-    html = conn.read()
-    parser.feed(html)
+    FetchListPartsbyType(opener, list_id, 'P', parser)
     # now instructions (have to be done separately apparently)
-    url_params['type'] = 'I'
-    try:
-      conn = opener.open(SHOP_LIST_URL % url_params)
-    except:
-      print "Could not connect to BrickLink. Check your connection and try again."
-      sys.exit(1)
-    html = conn.read()
-    parser.feed(html)
-    # get results
+    FetchListPartsbyType(opener, list_id, 'I', parser)
+    # In theory we should be able to do the following for boxes, but this
+    # is untested, thus commented:
+    #FetchListPartsbyType(opener, list_id, 'B', parser)
+
+    # get results back from parser
     lists[list_id]["parts"] = parser.Result()
     sys.stdout.write(' ... %d parts in %d lots\n' %
                      (sum(lists[list_id]["parts"].values()),len(lists[list_id]["parts"])))
