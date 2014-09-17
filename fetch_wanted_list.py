@@ -139,7 +139,7 @@ class ResultHtmlParser(HTMLParser):
   def Result(self):
     return self._collector.Parts()
 
-''' Parses list of wanted lists '''
+""" Parses list of wanted lists """
 class ListHtmlParser(HTMLParser):
   def __init__(self, collector = list_collector.ListCollector()):
     HTMLParser.__init__(self)
@@ -171,9 +171,9 @@ class ListHtmlParser(HTMLParser):
   def ResultbyName(self):
     return self._collector.ListsbyName()
 
-''' Get some information about available wanted lists on Bricklink,
+""" Get some information about available wanted lists on Bricklink,
     in particular their Bricklink IDs.
-'''
+"""
 def FetchListInfo(opener):
   try:
     conn = opener.open(LIST_LISTS_URL)
@@ -223,7 +223,7 @@ def FetchListPartsbyType(opener, list_id, ptype, parser):
   html = conn.read()
   parser.feed(html)
 
-''' Fetch the parts in wanted lists from Bricklink '''
+""" Fetch the parts in wanted lists from Bricklink """
 def FetchListParts():
   sys.stdout.write('Fetching lists...'+"\n")
 
