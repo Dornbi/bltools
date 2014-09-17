@@ -52,11 +52,13 @@ gflags.DEFINE_multistring(
     'specified multiple times to concatenate lists.')
 gflags.DEFINE_string(
     'user', None,
-    'Your user name on Bricklink. This is necessary for operations that require you to log in. '
+    'Your user name on Bricklink. This is necessary for operations that '
+    'require you to log in. '
     'It will not be saved anywhere, so it has to be specified every time.')
 gflags.DEFINE_string(
     'passwd', None,
-    'Your password on Bricklink. This is necessary for operations that require you to log in. '
+    'Your password on Bricklink. This is necessary for operations that require '
+    'you to log in. '
     'It will not be saved anywhere, so it has to be specified every time.')
 
 LIST_LISTS_URL = ('http://www.bricklink.com/wantedView.asp')
@@ -89,7 +91,8 @@ class ResultHtmlParser(HTMLParser):
   def handle_starttag(self, tag, attrs):
     attr_dict = dict(attrs)
     if (self._state == 1 and tag == "img" and
-        attr_dict.setdefault('src', '').startswith('http://img.bricklink.com/P/')):
+        attr_dict.setdefault('src', '').
+          startswith('http://img.bricklink.com/P/')):
       m = re.match(r'([0-9]+)\/([^.]+)\.', attr_dict.setdefault('src', '')[27:])
       if m:
         self._current_part_dict['ITEMID'] = m.group(2)
@@ -97,7 +100,8 @@ class ResultHtmlParser(HTMLParser):
         self._current_part_dict['TYPE']   = 'P'
         self._state = 2
     if (self._state == 1 and tag == "img" and
-        attr_dict.setdefault('src', '').startswith('http://img.bricklink.com/I/')):
+        attr_dict.setdefault('src', '').
+          startswith('http://img.bricklink.com/I/')):
       m = re.match(r'([^.]+)\.', attr_dict.setdefault('src', '')[27:])
       if m:
         self._current_part_dict['ITEMID'] = m.group(1)
@@ -232,7 +236,7 @@ def FetchListParts():
   if (not opener):
     print 'Could not login to Bricklink.'
     sys.exit(1)
-  # Get all wanted lists, in particular their IDs, which have to be used in queries
+  # Get all wanted lists, in particular their IDs, to be used in queries
   (lists, listsbyName) = FetchListInfo(opener)
 
   # Match existing lists with command line argument (which allows for a regex)
@@ -264,7 +268,8 @@ def FetchListParts():
     # get results back from parser
     lists[list_id]["parts"] = parser.Result()
     sys.stdout.write(' ... %d parts in %d lots\n' %
-                     (sum(lists[list_id]["parts"].values()),len(lists[list_id]["parts"])))
+                     (sum(lists[list_id]["parts"].values()),
+                      len(lists[list_id]["parts"])))
     for part_id in lists[list_id]["parts"]:
       collector.AddPartbyKey(part_id, lists[list_id]["parts"][part_id])
 
