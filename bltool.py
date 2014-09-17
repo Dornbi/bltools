@@ -142,8 +142,10 @@ COMMANDS = {
       'func': lambda argv: HelpCommand(argv)},
   'list': {
       'usage': '[<flags>] list <LDD_file>',
-      'desc': 'Lists all bricks, colors and quantities from an LDD file. Two special '
-              'values exist:\n  * "wlist" lists items in a given wanted list (--wanted_list_id)\n'
+      'desc': 'Lists all bricks, colors and quantities from an LDD file. Two '
+              'special values exist:\n'
+              '  * "wlist" lists items in a given wanted list '
+                '(--wanted_list_id)\n'
               '  * "store" lists all items available in a given store.',
       'flags': ['wanted_list_id', 'include_used', 'exclude_used'],
       'func': lambda argv: ListCommand(argv)},
