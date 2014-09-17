@@ -67,7 +67,8 @@ class WantedListPartCollector(xml.sax.handler.ContentHandler):
       else:
         color_id = 0
       quantity = int(self._current_part_dict['MINQTY'] or 1)
-      self._collector.AddPart(part_id, color_id, quantity, condition=condition, type=type)
+      self._collector.AddPart(part_id, color_id, quantity, condition=condition,
+                              type=type)
     elif self._current_elem_name != '':
       # This is the end of a (probably nested) element, so add its content
       # to the part dict.
