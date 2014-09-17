@@ -138,7 +138,7 @@ class ResultHtmlParser(HTMLParser):
   def Result(self):
     return self._collector.Parts()
 
-# parse list of wanted lists
+''' Parses list of wanted lists '''
 class ListHtmlParser(HTMLParser):
   def __init__(self, collector = list_collector.ListCollector()):
     HTMLParser.__init__(self)
