@@ -130,7 +130,8 @@ def FetchStoreInfo():
   parser.feed(html)
   # get results
   parts = parser.Result()
-  sys.stdout.write(' ... %d parts in %d lots\n' % (sum(parts.values()),len(parts)))
+  sys.stdout.write(' ... %d parts in %d lots\n' %
+                   (sum(parts.values()),len(parts)))
   for part_id in parts:
     collector.AddPartbyKey(part_id, parts[part_id])
 
