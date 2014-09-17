@@ -186,7 +186,7 @@ def HelpCommand(argv):
   
 def ListCommand(argv):
   if len(argv) >= 3:
-    if argv[2] == "wlist":
+    if argv[2] == 'wlist':
       parts = fetch_wanted_list.FetchListInfo()
     elif argv[2] == 'store':
       parts = fetch_inventory.FetchStoreInfo()
@@ -204,7 +204,7 @@ def ListCommand(argv):
     
 def OptimizeCommand(argv):
   if len(argv) >= 3:
-    if argv[2] == "wlist":
+    if argv[2] == 'wlist':
       parts = fetch_wanted_list.FetchListInfo()
     # This arguably isn't the most useful option, but it works and in theory it
     # gives you what your own inventory would be worth if bought now on BL
@@ -249,7 +249,7 @@ def ReadParts(filenames):
       wanted_list.CollectBricklinkParts(filename, collector)
     elif filename.endswith('.lxf'):
       lfxml.CollectBricklinkParts(filename, collector)
-    elif (filename != ""):
+    elif (filename != ''):
       print 'Unknown file type for file %s' % filename
   return collector.Parts()
 
