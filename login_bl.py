@@ -43,7 +43,7 @@ def BricklinkLogin():
   cj = cookielib.CookieJar()
   opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
   if (FLAGS.user == None or FLAGS.passwd == None):
-    print "You have to specify user name and password for this operation."
+    print 'You have to specify user name and password for this operation.'
     sys.exit(1);
   url_params = urllib.urlencode({
       'a': 'a',
@@ -55,7 +55,7 @@ def BricklinkLogin():
   try:
     conn = opener.open(url, url_params)
   except:
-    print "Could not connect to BrickLink. Check your connection and try again."
+    print 'Could not connect to BrickLink. Check your connection and try again.'
     sys.exit(1)
   html = conn.read()
   # TODO: check that this actually worked
