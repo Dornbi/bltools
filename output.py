@@ -259,7 +259,7 @@ def PrintOrdersText(optimizer, shop_fix_cost):
   orders = optimizer.Orders()
   total_netto  = 0
   total_brutto = 0
-  for shop in sorted(orders):
+  for shop in sorted(orders, key=optimizer.NetShopTotal, reverse=True):
     shop_total = optimizer.NetShopTotal(shop)
     total_netto  += shop_total
     total_brutto += shop_total + shop_fix_cost
@@ -267,7 +267,9 @@ def PrintOrdersText(optimizer, shop_fix_cost):
         RightPad(shop, 20),
         LeftPad('%.2f' % shop_total, 8),
         LeftPad('%.2f' % (shop_total + shop_fix_cost), 8))
-    for part in orders[shop]:
+    for part in sorted(orders[shop],
+                       key=lambda p: optimizer.UnitPrice(shop, p) * orders[shop][p],
+                       reverse=True):
       unit_price = optimizer.UnitPrice(shop, part)
       num_bricks = orders[shop][part]
       print '  %-15s: %s (Unit price %s, Total %s)' % (
