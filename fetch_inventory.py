@@ -46,7 +46,11 @@ FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string(
     'store_id', "default",
-    'The id of the store.')
+    'The id of the store. This is a numeric number associated to a shop. '
+    'In particular, this is NOT the shop name. Eventually bltools will '
+    'be able to get this ID automatically, but for now, go to the shop '
+    'and look at the link for "Show all items". The value of the argument '
+    '"h" is what you are looking for.')
 
 # check which of these are really necessary
 SHOP_LIST_URL = (
@@ -110,27 +114,6 @@ class ResultHtmlParser(HTMLParser):
 def FetchStoreInfo():
   sys.stdout.write('Fetching inventory...'+"\n")
 
-  # First login, and for that we have to use cookies
-  cj = cookielib.CookieJar()
-  opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-  if (FLAGS.user == None or FLAGS.passwd == None):
-    print "You have to specify user name and password for this operation."
-    sys.exit(1);
-  url_params = urllib.urlencode({
-      'a': 'a',
-      'logFrmFlag' : 'Y',
-      'frmUsername' : FLAGS.user,
-      'frmPassword' : FLAGS.passwd,
-    })
-  login_url = 'https://www.bricklink.com/login.asp?logInTo=&logFolder=p&logSub=w'
-  try:
-    conn = opener.open(login_url, url_params)
-  except:
-    print "Could not login to BrickLink. Check your connection and try again."
-    sys.exit(1)
-  html = conn.read()
-  # For now, discart output and assume we are logged in - proceed with actual request
-
   # get information for all lists that matched
   collector = part_collector.PartCollector()
   parser = ResultHtmlParser()
@@ -139,7 +122,7 @@ def FetchStoreInfo():
     'store_id' : FLAGS.store_id,
     }
   try:
-    conn = opener.open(SHOP_LIST_URL % url_params)
+    conn = urllib.urlopen(SHOP_LIST_URL % url_params)
   except:
     print "Could not connect to BrickLink. Check your connection and try again."
     sys.exit(1)

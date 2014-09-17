@@ -39,6 +39,7 @@ import urllib, urllib2, cookielib
 
 import part_collector
 import list_collector
+import login_bl
 
 import gflags
 from HTMLParser import HTMLParser
@@ -174,27 +175,11 @@ class ListHtmlParser(HTMLParser):
 def FetchListInfo():
   sys.stdout.write('Fetching lists...'+"\n")
 
-  # First login, and for that we have to use cookies
-  cj = cookielib.CookieJar()
-  opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-  if (FLAGS.user == None or FLAGS.passwd == None):
-    print "You have to specify user name and password for this operation."
-    sys.exit(1);
-  url_params = urllib.urlencode({
-      'a': 'a',
-      'logFrmFlag' : 'Y',
-      'frmUsername' : FLAGS.user,
-      'frmPassword' : FLAGS.passwd,
-    })
-  login_url = 'https://www.bricklink.com/login.asp?logInTo=&logFolder=p&logSub=w'
-  try:
-    conn = opener.open(login_url, url_params)
-  except:
-    print "Could not connect to BrickLink. Check your connection and try again."
+  # First login
+  opener = login_bl.BricklinkLogin()
+  if (not opener):
+    print "Could not login to Bricklink."
     sys.exit(1)
-  html = conn.read()
-  # For now, discard output and assume we are logged in - proceed with actual request
-  # TODO: check that we are in fact logged in
   # Next, get all wanted lists, in particular their IDs, which have to be used in queries
   try:
     conn = opener.open(LIST_LISTS_URL)
