@@ -35,6 +35,8 @@ import sys, urllib, urllib2, cookielib
 
 from gflags import FLAGS
 
+LOGIN_URL = 'https://www.bricklink.com/login.asp?logInTo=&logFolder=p&logSub=w'
+
 """
 Login to Bricklink, and return a urllib2.build_opener() to further use
 """
@@ -51,7 +53,7 @@ def BricklinkLogin():
       'frmUsername' : FLAGS.user,
       'frmPassword' : FLAGS.passwd,
     })
-  url = 'https://www.bricklink.com/login.asp?logInTo=&logFolder=p&logSub=w'
+  url = LOGIN_URL
   try:
     conn = opener.open(url, url_params)
   except:
