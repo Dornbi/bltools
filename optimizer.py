@@ -341,20 +341,38 @@ class BuiltinOptimizer(OptimizerBase):
     best_list = None
     sys.stdout.write('Optimizing...')
     sys.stdout.flush()
+    # optimization: build dict that is used later for quick lookup whether
+    # a certain combination of shops actually provides all necessary parts
+    shops_have_part = {}
+    for p in self._parts_needed:
+      shops_have_part[p] = 0
+      shops = self._shops.keys()
+      for j in xrange(len(shops)):
+        if (shops[j] in [ s['shop_name'] for s in self._shops_for_parts[p] ]):
+          shops_have_part[p] += 1 << j
+    # loop over all possible shop combinations, comparing price
     total = 2 ** FLAGS.consider_shops
     for k in reversed(xrange(100)):
       for i in reversed(xrange(total * k / 100, total * (k+1) / 100)):
-        shops = [
+        # quick way to see if this combination has all parts available
+        possible = True
+        for p in self._parts_needed:
+          if (not (shops_have_part[p] & i)):
+            possible = False
+            break
+        if (possible):
+          # generate list of shops from integer
+          shops = [
             self._shops.keys()[j]
             for j in xrange(len(self._shops))
             if i & 1 << j]
-        if len(shops) <= FLAGS.max_shops:
-          p = self._TotalPrice(shops)
-          if p and p < best_price:
-            best_price = p
-            best_list = shops
-        else:
-          assert False, "You need to use at least %d in --max_shops." % len(shops)
+          if len(shops) <= FLAGS.max_shops:
+            p = self._TotalPrice(shops)
+            if p and p < best_price:
+              best_price = p
+              best_list = shops
+          else:
+            assert False, "You need to use at least %d in --max_shops." % len(shops)
       sys.stdout.write('\rOptimizing... %d%%, current best price: %.2f' % (100 - k, best_price))
       sys.stdout.flush()
     sys.stdout.write('\n')
