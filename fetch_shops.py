@@ -62,7 +62,8 @@ SHOP_NAME_REGEX = r'/store\.asp\?p=(.*)&itemID=.*'
 
 CATALOG_URL = (
   'http://www.bricklink.com/catalogItem.asp?%(type)s=%(part)s' )
-CATALOG_ITEM_ID_REGEX = r'<A HREF="search\.asp\?itemID=([^"]*)'
+CATALOG_ITEM_ID_REGEX       = r'<A HREF="search\.asp\?itemID=([^&"]*)'
+CATALOG_ITEM_ID_COLOR_REGEX = r'<A HREF="search\.asp\?itemID=([^&"]*)&colorID=%s'
 
 FLOAT_CHARS = set('0123456789.')
 INT_CHARS = set('0123456789')
@@ -152,7 +153,11 @@ def FetchShopInfo(part_dict):
       URL = CATALOG_URL % {'type': part.type(), 'part': part.id() }
       conn = urllib.urlopen(URL)
       html = conn.read()
-      m = re.search(CATALOG_ITEM_ID_REGEX, html)
+      if part.type() == 'P':
+        m = re.search(CATALOG_ITEM_ID_COLOR_REGEX % part.color(), html)
+        print m.groups()
+      else:
+        m = re.search(CATALOG_ITEM_ID_REGEX, html)
       part_id = None
       if (m):
         part_id = m.group(1)
@@ -171,10 +176,11 @@ def FetchShopInfo(part_dict):
       if (part.condition() != 'A'):
         URL += "&invNew=%s" % part.condition()
       if (part.type() == 'P'):
-        URL = "%s&colorID=%s'" % (URL, part.color())
+        URL = "%s&colorID=%s" % (URL, part.color())
       conn = urllib.urlopen(URL)
       parser = ResultHtmlParser(str(part))
-      parser.feed(conn.read())
+      html = conn.read()
+      parser.feed(html)
       shop_items[part] = parser.Result()
       partfile = open(partfile_name, "w")
       partfile.write(json.dumps(parser.Result()))

@@ -70,6 +70,10 @@ gflags.DEFINE_list(
     'Does not allow these shops.')
 
 gflags.DEFINE_list(
+    'dont_exclude_shops', [],
+    'Does allow these shops, even if excluded by country.')
+
+gflags.DEFINE_list(
     'include_countries', [],
     'Allows these countries only. If empty, all countries are allowed.')
 
@@ -239,8 +243,10 @@ class OptimizerBase(object):
                 or s['shop_name'] in FLAGS.include_shops)
             and s['shop_name'] not in FLAGS.exclude_shops
             and (not FLAGS.include_countries
-                or s['location'] in FLAGS.include_countries)
-            and s['location'] not in FLAGS.exclude_countries):
+                or s['location'] in FLAGS.include_countries
+                or s['shop_name'] in FLAGS.dont_exclude_shops)
+            and (s['location'] not in FLAGS.exclude_countries
+                or s['shop_name'] in FLAGS.dont_exclude_shops)):
           new_shops.append(s)
       filtered_shops_for_parts[p] = new_shops
     return filtered_shops_for_parts
