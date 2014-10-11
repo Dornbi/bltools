@@ -34,6 +34,7 @@ import cgi
 import textwrap
 
 import wanted_list
+from gflags import FLAGS
 
 MAX_CHARS=80
 
@@ -255,8 +256,14 @@ def PrintShopsText(optimizer):
   PrintListText(optimizer.SupplementalShops().keys())
 
 def PrintOrdersText(optimizer, shop_fix_cost):
-  print 'Orders:'
   orders = optimizer.Orders()
+  if (orders == None):
+    if (FLAGS.max_shops < FLAGS.consider_shops):
+      print "No possible orders found. Try increasing --max_shops."
+    else:
+      print "No possible orders found - which might be an internal error."
+    return
+  print 'Orders:'
   total_netto  = 0
   total_brutto = 0
   for shop in sorted(orders, key=optimizer.NetShopTotal, reverse=True):
@@ -288,6 +295,8 @@ def PrintAllHtml(
   try:
     title = 'Orders for %s' % ldd_file_name
     orders = optimizer.Orders()
+    if (orders == None):
+      return
 
     orders_fragment = ''
     num_all_part_types = 0
