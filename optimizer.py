@@ -88,7 +88,9 @@ gflags.DEFINE_float(
 gflags.DEFINE_integer(
     'max_shops', 8,
     'The maximum number of shops to evaluate for any possible combination of '
-    'considered shops. Affects --mode=builtin only.')
+    'considered shops. Affects --mode=builtin only. Setting this to something '
+    'smaller than consider_shops does not always speed up the time to '
+    'solution, you will have to try with your specific query.')
 
 gflags.DEFINE_integer(
     'consider_shops', 20,
