@@ -237,7 +237,7 @@ def OptimizeCommand(argv):
     
     if FLAGS.output_html:
       output.PrintAllHtml(
-          opt, FLAGS.shop_fix_cost, argv[2], FLAGS.output_html)
+          opt, shop_data, FLAGS.shop_fix_cost, argv[2], FLAGS.output_html)
 
   else:
     ReportError('Optimize needs exactly one argument.')

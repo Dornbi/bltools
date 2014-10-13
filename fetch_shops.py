@@ -81,11 +81,14 @@ class ResultHtmlParser(HTMLParser):
         attr_dict.setdefault('rel', '') == 'blcatimg'):
       self._state = 1
       self._current_dict = {}
-    elif self._state == 2 and tag == 'b':
-      self._state = 3
-    elif self._state == 4 and tag == 'b':
-      self._state = 5
-    elif self._state == 6 and tag == 'a':
+    elif self._state == 1 and tag == 'img':
+      self._current_dict['lotpic'] = attr_dict.setdefault('src', '')
+      self._state = 2
+    elif self._state == 3 and tag == 'b':
+      self._state = 4
+    elif self._state == 5 and tag == 'b':
+      self._state = 6
+    elif self._state == 7 and tag == 'a':
       m = re.match(SHOP_NAME_REGEX, dict(attrs)['href'])
       if m:
         self._current_dict['shop_name'] = m.group(1)
@@ -93,11 +96,11 @@ class ResultHtmlParser(HTMLParser):
       self._state = 0
 
   def handle_data(self, data):
-    if self._state == 1 and data.startswith('Used'):
+    if self._state == 2 and data.startswith('Used'):
       self._current_dict['condition'] = 'U'
-    elif self._state == 1 and data.startswith('New'):
+    elif self._state == 2 and data.startswith('New'):
       self._current_dict['condition'] = 'N'
-    elif self._state == 1 and data.startswith('Loc:'):
+    elif self._state == 2 and data.startswith('Loc:'):
       m = re.match(r'Loc: (.*), Min Buy: (.*)', data)
       if m:
         self._current_dict['location'] = m.group(1)
@@ -107,16 +110,16 @@ class ResultHtmlParser(HTMLParser):
           self._current_dict['min_buy'] = float(min_buy_str)
         else:
           self._current_dict['min_buy'] = 0.0
-    elif self._state == 1 and data.startswith('Qty:'):
-      self._state = 2
-    elif self._state == 3:
+    elif self._state == 2 and data.startswith('Qty:'):
+      self._state = 3
+    elif self._state == 4:
       self._current_dict['quantity'] = int(
           ''.join(ch for ch in data if ch in INT_CHARS))
-      self._state = 4
-    elif self._state == 5:
+      self._state = 5
+    elif self._state == 6:
       self._current_dict['unit_price'] = float(
           ''.join(ch for ch in data.split(' ')[1] if ch in FLOAT_CHARS))
-      self._state = 6
+      self._state = 7
 
   def Result(self):
     # Unify duplicate lots
@@ -155,7 +158,6 @@ def FetchShopInfo(part_dict):
       html = conn.read()
       if part.type() == 'P':
         m = re.search(CATALOG_ITEM_ID_COLOR_REGEX % part.color(), html)
-        print m.groups()
       else:
         m = re.search(CATALOG_ITEM_ID_REGEX, html)
       part_id = None

@@ -45,97 +45,100 @@ gflags.DEFINE_string('color_translate', '',
                      'Example: 53:201,1:3')
 
 TRANSLATE_COLORS = {
-    '1'   : '1',   # White
-    '100' : '26',  # Light Salmon
-    '101' : '25',  # Salmon
-    '102' : '42',  # Medium Blue
-    '103' : '49',  # Very Light Gray
-    '104' : '24',  # Purple
-    '105' : '31',  # Medium Orange
-    '106' : '4',   # Orange
-    '107' : '39',  # Dark Turquoise
-    '11'  : '72',  # Maersk Blue
-    '111' : '13',  # Trans-Black
-    '112' : '43',  # Violet
-    '113' : '50',  # Trans-Dark Pink
-    '114' : '114', # Trans-Very Lt Blue
-    '115' : '76',  # Medium Lime
-    '116' : '40',  # Light Turquoise
-    '117' : '101', # Glitter Trans-Clear
-    '118' : '41',  # Aqua
-    '119' : '34',  # Lime
-    '12'  : '29',  # Earth Orange
-    '120' : '35',  # Light Lime
-    '124' : '71',  # Magenta
-    '126' : '51',  # Trans-Purple
-    '127' : '61',  # Pearl Light Gold
-    '129' : '102', # Glitter Trans-Purple
-    '131' : '66',  # Pearl Light Gray
-    '132' : '111', # Speckle Black-Silver
-    '135' : '55',  # Sand Blue
-    '136' : '54',  # Sand Purple
-    '138' : '69',  # Dark Tan
-    '139' : '84',  # Copper
-    '140' : '63',  # Dark Blue
-    '141' : '80',  # Dark Green
-    '143' : '74',  # Trans-Medium Blue
-    '145' : '78',  # Metal Blue
-    '148' : '77',  # Pearl Dark Gray
-    '151' : '48',  # Sand Green
-    '153' : '58',  # Sand Red
-    '154' : '59',  # Dark Red
-    '18'  : '28',  # Flesh
-    '182' : '98',  # Trans-Orange
-    '191' : '110', # Bright Light Orange
-    '192' : '88',  # Reddish Brown
-    '194' : '86',  # Light Bluish Gray
-    '195' : '97',  # BlueViolet
-    '196' : '109', # Dark Blue-Violet
-    '198' : '93',  # Light Purple
-    '199' : '85',  # Dark Bluish Gray
-    '2'   : '9',   # Light Gray
-    '20'  : '60',  # Milky White
-    '208' : '99',  # Very Light Bluish Gray
-    '21'  : '5',   # Red
-    '212' : '105', # Bright Light Blue
-    '217' : '91',  # Dark Flesh
-    '22'  : '47',  # Dark Pink
-    '222' : '104', # Bright Pink
-    '226' : '103', # Bright Light Yellow
-    '23'  : '7',   # Blue
-    '232' : '87',  # Sky Blue
-    '24'  : '3',   # Yellow
-    '25'  : '8',   # Brown
-    '26'  : '11',  # Black
-    '268' : '89',  # Dark Purple
-    '27'  : '10',  # Dark Gray
-    '28'  : '6',   # Green
-    '283' : '90',  # Light Flesh
-    '29'  : '37',  # Medium Green
-    '294' : '118', # Glow In Dark Trans
-    '297' : '115', # Pearl Gold
-    '3'   : '33',  # Light Yellow
-    '301' : '22',  # Chrome Silver
-    '308' : '120', # Dark Brown
-    '315' : '67',  # Metallic Silver
-    '36'  : '96',  # Very Light Orange
-    '37'  : '36',  # Bright Green
-    '38'  : '68',  # Dark Orange
-    '39'  : '44',  # Light Violet
-    '40'  : '12',  # Trans-Clear
-    '41'  : '17',  # Trans-Red
-    '42'  : '15',  # Trans-Light Blue
-    '43'  : '14',  # Trans-Dark Blue
-    '44'  : '19',  # Trans-Yellow
-    '45'  : '62',  # Light Blue
-    '47'  : '18',  # Trans-Neon Orange
-    '48'  : '20',  # Trans-Green
-    '49'  : '16',  # Trans-Neon Green
-    '5'   : '2',   # Tan
-    '50'  : '46',  # Glow In Dark Opaque
-    '6'   : '38',  # Light Green
-    '9'   : '23',  # Pink
+    '1'   : (  '1', 'White' ),
+    '100' : ( '26', 'Light Salmon' ),
+    '101' : ( '25', 'Salmon' ),
+    '102' : ( '42', 'Medium Blue' ),
+    '103' : ( '49', 'Very Light Gray' ),
+    '104' : ( '24', 'Purple' ),
+    '105' : ( '31', 'Medium Orange' ),
+    '106' : (  '4', 'Orange' ),
+    '107' : ( '39', 'Dark Turquoise' ),
+    '11'  : ( '72', 'Maersk Blue' ),
+    '111' : ( '13', 'Trans-Black' ),
+    '112' : ( '43', 'Violet' ),
+    '113' : ( '50', 'Trans-Dark Pink' ),
+    '114' : ('114', 'Trans-Very Lt Blue' ),
+    '115' : ( '76', 'Medium Lime' ),
+    '116' : ( '40', 'Light Turquoise' ),
+    '117' : ('101', 'Glitter Trans-Clear' ),
+    '118' : ( '41', 'Aqua' ),
+    '119' : ( '34', 'Lime' ),
+    '12'  : ( '29', 'Earth Orange' ),
+    '120' : ( '35', 'Light Lime' ),
+    '124' : ( '71', 'Magenta' ),
+    '126' : ( '51', 'Trans-Purple' ),
+    '127' : ( '61', 'Pearl Light Gold' ),
+    '129' : ('102', 'Glitter Trans-Purple' ),
+    '131' : ( '66', 'Pearl Light Gray' ),
+    '132' : ('111', 'Speckle Black-Silver' ),
+    '135' : ( '55', 'Sand Blue' ),
+    '136' : ( '54', 'Sand Purple' ),
+    '138' : ( '69', 'Dark Tan' ),
+    '139' : ( '84', 'Copper' ),
+    '140' : ( '63', 'Dark Blue' ),
+    '141' : ( '80', 'Dark Green' ),
+    '143' : ( '74', 'Trans-Medium Blue' ),
+    '145' : ( '78', 'Metal Blue' ),
+    '148' : ( '77', 'Pearl Dark Gray' ),
+    '151' : ( '48', 'Sand Green' ),
+    '153' : ( '58', 'Sand Red' ),
+    '154' : ( '59', 'Dark Red' ),
+    '18'  : ( '28', 'Flesh' ),
+    '182' : ( '98', 'Trans-Orange' ),
+    '191' : ('110', 'Bright Light Orange' ),
+    '192' : ( '88', 'Reddish Brown' ),
+    '194' : ( '86', 'Light Bluish Gray' ),
+    '195' : ( '97', 'BlueViolet' ),
+    '196' : ('109', 'Dark Blue-Violet' ),
+    '198' : ( '93', 'Light Purple' ),
+    '199' : ( '85', 'Dark Bluish Gray' ),
+    '2'   : (  '9', 'Light Gray' ),
+    '20'  : ( '60', 'Milky White' ),
+    '208' : ( '99', 'Very Light Bluish Gray' ),
+    '21'  : (  '5', 'Red' ),
+    '212' : ('105', 'Bright Light Blue' ),
+    '217' : ( '91', 'Dark Flesh' ),
+    '22'  : ( '47', 'Dark Pink' ),
+    '222' : ('104', 'Bright Pink' ),
+    '226' : ('103', 'Bright Light Yellow' ),
+    '23'  : (  '7', 'Blue' ),
+    '232' : ( '87', 'Sky Blue' ),
+    '24'  : (  '3', 'Yellow' ),
+    '25'  : (  '8', 'Brown' ),
+    '26'  : ( '11', 'Black' ),
+    '268' : ( '89', 'Dark Purple' ),
+    '27'  : ( '10', 'Dark Gray' ),
+    '28'  : (  '6', 'Green' ),
+    '283' : ( '90', 'Light Flesh' ),
+    '29'  : ( '37', 'Medium Green' ),
+    '294' : ('118', 'Glow In Dark Trans' ),
+    '297' : ('115', 'Pearl Gold' ),
+    '3'   : ( '33', 'Light Yellow' ),
+    '301' : ( '22', 'Chrome Silver' ),
+    '308' : ('120', 'Dark Brown' ),
+    '315' : ( '67', 'Metallic Silver' ),
+    '36'  : ( '96', 'Very Light Orange' ),
+    '37'  : ( '36', 'Bright Green' ),
+    '38'  : ( '68', 'Dark Orange' ),
+    '39'  : ( '44', 'Light Violet' ),
+    '40'  : ( '12', 'Trans-Clear' ),
+    '41'  : ( '17', 'Trans-Red' ),
+    '42'  : ('15',  'Trans-Light Blue' ),
+    '43'  : ('14',  'Trans-Dark Blue' ),
+    '44'  : ('19',  'Trans-Yellow' ),
+    '45'  : ('62',  'Light Blue' ),
+    '47'  : ('18',  'Trans-Neon Orange' ),
+    '48'  : ('20',  'Trans-Green' ),
+    '49'  : ('16',  'Trans-Neon Green' ),
+    '5'   : ('2',   'Tan' ),
+    '50'  : ('46',  'Glow In Dark Opaque' ),
+    '6'   : ('38',  'Light Green' ),
+    '9'   : ('23',  'Pink' ),
+    '?1'  : ('155', 'Olive Green'),
 }
+
+TRANSLATE_COLORS_BL = {int(TRANSLATE_COLORS[p][0]): (p, TRANSLATE_COLORS[p][1]) for p in TRANSLATE_COLORS.keys()}
 
 TRANSLATE_PARTS = {
 	'12825': '2555',
@@ -241,8 +244,8 @@ class LxfmlPartCollector(xml.sax.handler.ContentHandler):
     if name == 'Part' and 'designID' in attrs and 'materials' in attrs:
       part_id = attrs['designID']
       color_id = attrs['materials'].split(',')[0]
-      if color_id in TRANSLATE_COLORS:
-        color_id = TRANSLATE_COLORS[color_id]
+      if color_id in TRANSLATE_COLORS.keys():
+        color_id = TRANSLATE_COLORS[color_id][0]
         if color_id in self._custom_dict:
           color_id = self._custom_dict[color_id]
         if part_id in TRANSLATE_PARTS:

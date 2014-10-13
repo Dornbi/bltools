@@ -32,6 +32,7 @@ Outputs the result of the optimizer.
 
 import cgi
 import textwrap
+import lfxml
 
 import wanted_list
 from gflags import FLAGS
@@ -158,7 +159,7 @@ ORDER_SHOPHEAD = """
 <tr>
 <td colspan="6">Gross cost (with shipping):</td>
 <td class="rightalign"><b>%.2f</b></td>
-<td>Update wanted list ID:
+<td colspan="2">Update wanted list ID:
 <input type="text" onchange="update(this, 'wanted_%s')"/>
 </td>
 </tr>
@@ -166,11 +167,12 @@ ORDER_SHOPHEAD = """
 
 ORDER_ROWHEAD = """
 <tr class="head">
-<td>Part<br/>(type-id-condition-color)</td>
-<td>Condition</td>
-<td>Available<br/>in shops</td>
-<td class="rightalign">Quantity<br/>needed</td>
-<td class="rightalign">Quantity<br/>on order</td>
+<td>Part-ID</td>
+<td>Color</td>
+<td class="rightalign">Cond.</td>
+<td class="rightalign">shops</td>
+<td class="rightalign">Qty<br/>needed</td>
+<td class="rightalign">Qty<br/>ordered</td>
 <td class="rightalign">Unit<br/>price</td>
 <td class="rightalign">Total<br/>price</td>
 <td>Wanted list XML</td>
@@ -179,7 +181,7 @@ ORDER_ROWHEAD = """
 
 ORDER_XML = """
 <tr>
-<td colspan="7"></td>
+<td colspan="8"></td>
 <td class="wanted" rowspan="%d"><pre>%s</pre></td>
 </tr>
 """
@@ -188,6 +190,7 @@ ORDER_XML_DYNAMIC = '<span name="wanted_%s"></span>'
 
 ORDER_ROW = """
 <tr>
+<td>%s</td>
 <td>%s</td>
 <td>%s</td>
 <td class="rightalign">%d</td>
@@ -288,6 +291,7 @@ def PrintOrdersText(optimizer, shop_fix_cost):
 
 def PrintAllHtml(
     optimizer,
+    shop_data,
     shop_fix_cost,
     ldd_file_name,
     output_html_file_name):
@@ -315,16 +319,22 @@ def PrintAllHtml(
         num_shop_part_types += 1
         num_all_part_types += 1
         used = '&nbsp;'
+        this_shop_data = [x for x in shop_data[part] if x['shop_name'] == shop][0]
+        imglink = this_shop_data['lotpic']
         if (part.type() == 'P'):
           link = PART_LINK % (part.id(), part.color())
+          color_name = lfxml.TRANSLATE_COLORS_BL[int(part.color())][1
+                       ].replace(' ', '&nbsp;')
         else:
           link = PART_LINK_NOCOLOR % (part.id())
+          color_name == "&nbsp;"
         if (part.condition() in ('U', 'N')):
           used = part.condition()
           link = link + PART_COND % used
-        link = MakeLink(link, part)
+        link = MakeLink(link, part.id())
         shop_fragment += ORDER_ROW % (
-            link,
+            '<img width="50%" src="'+imglink+'"><br>'+link,
+            color_name,
             used,
             optimizer.NumShopsAvailable(part),
             optimizer.PartsNeeded()[part],
