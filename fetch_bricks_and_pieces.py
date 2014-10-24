@@ -270,6 +270,7 @@ def BaPFetchShopInfo(part_id, part_color):
           else:
             print parser._result
             print part
+            print "BL part_id :", part_id
             sys.exit(1)
         if (colorcode < 0):
           if 'needs_refetch' in parser._result[0]:
