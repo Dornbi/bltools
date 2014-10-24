@@ -135,7 +135,7 @@ def BaPmyopen(opener, url, post=None, errstr=""):
 def BaPGetCache():
   # Cache data
   try:
-         BaPData = pickle.load(open(BAPCACHEFILE, 'rb'))
+    BaPData = pickle.load(open(BAPCACHEFILE, 'rb'))
   except:
     BaPData = {'p':{}, 'e':{}, 'a':{}}
   return BaPData
@@ -248,7 +248,7 @@ def BaPFetchShopInfo(part_id, part_color):
       # are equivalent. We need to check if this is the case here.
       alternatives = BaPGetAlternate_PartIDs(part_id)
       if (not alternatives or not design_id in alternatives):
-        print("Inconsistency in return from Lego: got different part/design id back: "+
+        print("\rInconsistency in return from Lego: got different part/design id back: "+
               "%s!=%s, eid %s" %(
               design_id, part_id, element_id))
         #sys.exit(1)
