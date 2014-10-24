@@ -251,7 +251,7 @@ def BaPFetchShopInfo(part_id, part_color):
         print("Inconsistency in return from Lego: got different part/design id back: "+
               "%s!=%s, eid %s" %(
               design_id, part_id, element_id))
-        sys.exit(1)
+        #sys.exit(1)
     elif part['Price'] > 0:
       colorcode = -1
       if (element_id in BaPData['e']):
