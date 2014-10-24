@@ -235,7 +235,7 @@ def BaPFetchShopInfo(part_id, part_color):
   # all available element IDs (which encode also the color), and cross-check
   # with Bricklink if it is the one we are interested in. In other words, we need
   # to connect one of the element IDs to the BL color code we've been given.
-  print " BaP: ",len(part_info), "candidates found for %s (%d)" % (part_id, part_color)
+  #print " BaP: ",len(part_info), "candidates found for %s (%d)" % (part_id, part_color)
   if (part_info == None or len(part_info) == 0):
     part_info = []
   found = False
@@ -289,7 +289,6 @@ def BaPFetchShopInfo(part_id, part_color):
   if found:
     #print "Found: Part %s in color %d (Element ID %s): %s %s" % (
     #      part_id, part_color, element_id, found['Price'], found['CId'])
-    print found
     return {'quantity'  : 200,
             'unit_price': found['Price'],
             'min_buy'   : 0.0,
