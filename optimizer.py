@@ -260,6 +260,11 @@ class OptimizerBase(object):
     # shops that we must take on the list to guarantee that we
     # have at least one shop for the part.
     critical_shops = {}
+    if (FLAGS.bap):
+      critical_shops['LEGO Bricks and Pieces'] = {
+        'type'    : 'critical',
+        'min_buy' : 0.0,
+        'location': 'USA'}
 
     # shops that we consider because they offer stuff cheaper.
     supplemental_shops = {}

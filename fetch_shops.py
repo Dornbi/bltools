@@ -36,6 +36,7 @@ import sys
 import os
 import urllib
 import datetime
+import fetch_bricks_and_pieces as BaP
 
 import gflags
 from HTMLParser import HTMLParser
@@ -45,6 +46,10 @@ FLAGS = gflags.FLAGS
 gflags.DEFINE_integer(
     'num_shops', 500,
     'Number of shops to fetch. Note that bricklink won\'t allow more than 500.')
+
+gflags.DEFINE_boolean(
+    'bap', False,
+    'Also include the Lego Bricks and Pieces shop in the query.')
 
 SHOP_LIST_URL_QUERY = (
   'http://www.bricklink.com/search.asp'
@@ -195,6 +200,10 @@ def FetchShopInfo(part_dict):
       finally:
         partfile.close()
       shop_items[part] = data
+    if (FLAGS.bap and part.type() == 'P'):
+      BaPInfo = BaP.BaPFetchShopInfo(part.id(), int(part.color()))
+      if (BaPInfo != None):
+        shop_items[part].append(BaPInfo)
     sys.stdout.flush()
     
   sys.stdout.write('\n')
