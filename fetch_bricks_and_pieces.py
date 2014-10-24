@@ -260,7 +260,7 @@ def BaPFetchShopInfo(part_id, part_color):
         BLurl = r'http://www.bricklink.com/catalogList.asp?q=%d'%element_id
         conn = BaPmyopen(BaPopener, BLurl)
         html = conn.read()
-        parser = BaPResultHtmlParser(part_id)
+        parser = BaPResultHtmlParser(short_part_id)
         parser.feed(html)
         if (len(parser._result) == 0):
           print "Could not find result on BL: ", BLurl
