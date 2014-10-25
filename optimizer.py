@@ -260,12 +260,6 @@ class OptimizerBase(object):
     # shops that we must take on the list to guarantee that we
     # have at least one shop for the part.
     critical_shops = {}
-    if (FLAGS.bap):
-      critical_shops['LEGO Bricks and Pieces'] = {
-        'type'    : 'critical',
-        'min_buy' : 0.0,
-        'location': 'USA'}
-
     # shops that we consider because they offer stuff cheaper.
     supplemental_shops = {}
 
@@ -298,6 +292,14 @@ class OptimizerBase(object):
                        'Bricklink and LDD and the mapping must be added to '
                        'lfxml.py 2) The part does not exist in this color.'
                        % str(p))
+    # Add Lego Bricks and Pieces here if requestes, on purpose _after_ the
+    # other shops to make sure we have an alternative in the mix
+    if (FLAGS.bap):
+      critical_shops['Lego Bricks and Pieces'] = {
+        'type'    : 'critical',
+        'min_buy' : 0.0,
+        'location': 'USA'}
+
 
     # Second, populate the supplemental list with scores.
     base_score = 10 * (
