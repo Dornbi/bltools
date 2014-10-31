@@ -479,8 +479,8 @@ class BuiltinOptimizer(OptimizerBase):
             best_list  = _best_list
             self._order_bricks = _best_order
         if (best_list):
-          sys.stdout.write('\rOptimizing... %d%%, current best price: %.2f' % (
-                           int(100*len(output)/len(results)), best_price))
+          sys.stdout.write('\rOptimizing... %d%%, current best price: %.2f from %d shops.  ' % (
+                           int(100*len(output)/len(results)), best_price, len(_best_order)))
         else:
           sys.stdout.write('\rOptimizing... %d%%' % (
                            int(100*len(output)/len(results))))
