@@ -177,7 +177,7 @@ def FetchShopInfo(part_dict):
           print "\nBricklink ItemID not found for %s, maybe not available?" % part
           sys.exit(1)
         url_params = {
-          'part': part_id,
+          'part': part.id(),
           'num_shops': FLAGS.num_shops}
         URL = SHOP_LIST_URL_QUERY % url_params
       if (part.condition() != 'A'):

@@ -58,8 +58,8 @@ class BaPResultHtmlParser(HTMLParser):
     if self._state == 1 and tag == 'b':
       self._state += 1
     elif (self._state == 3 and tag == 'a' and
-        attr_dict.setdefault('href', '').startswith('/catalogItemIn.asp?P=%s'%self._part_id)):
-      m = re.match(r'/catalogItemIn.asp\?P=%s[^&]*&colorID=([0-9]+)&in=A'%self._part_id,
+        attr_dict.setdefault('href', '').startswith('/catalogItemIn.asp?P=')):
+      m = re.match(r'/catalogItemIn.asp\?P=[^&]*&colorID=([0-9]+)&in=A',
                    attr_dict.setdefault('href', ''))
       if m:
         self._current_dict['current_colorcode'] = m.group(1)

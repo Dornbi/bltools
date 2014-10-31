@@ -271,6 +271,12 @@ class OptimizerBase(object):
 
     # First, establish at least one shop for each part and put it into
     # the criticical list.
+    # Special handling for Lego Bricks and Pieces, as while it often does
+    # have specialy parts for cheaper than on BL, it also has usual parts
+    # for more money than on BL. We don't want to pick up BaP as critical
+    # shop for a usual part. Thus, here we don't pick BaP as critical shop
+    # here, but add it unconditionally later (if --bap was given)
+    BaP = 'Lego Bricks and Pieces'
     for p in parts_by_rarity:
       part = p[0]
       existing_shops = (
@@ -280,19 +286,21 @@ class OptimizerBase(object):
       if not existing_shops:
         # We need one more critical shop, we use the cheapest for the part.
         for s in shops_for_parts[part]:
-          if s['shop_name'] not in FLAGS.exclude_shops:
+          if (s['shop_name'] not in FLAGS.exclude_shops and
+              s['shop_name'] != BaP):
             critical_shops[s['shop_name']] = {
                 'type': 'critical',
                 'min_buy': s['min_buy'],
                 'location': s['location']}
             found = True
             break
-        assert found, ('Element %s was not found. This can mean: 1) The part '
-                       'number or color of the element is different on '
-                       'Bricklink and LDD and the mapping must be added to '
-                       'lfxml.py 2) The part does not exist in this color.'
-                       % str(p))
-    # Add Lego Bricks and Pieces here if requestes, on purpose _after_ the
+        assert found or FLAGS.bap and BaP in set(s['shop_name'] for s in shops_for_parts[part]),(
+                'Element %s was not found. This can mean: 1) The part '
+                'number or color of the element is different on '
+                'Bricklink and LDD and the mapping must be added to '
+                'lfxml.py 2) The part is not availaable in this color.'
+                % str(p))
+    # Add Lego Bricks and Pieces here if requested, on purpose _after_ the
     # other shops to make sure we have an alternative in the mix
     if (FLAGS.bap):
       critical_shops['Lego Bricks and Pieces'] = {
