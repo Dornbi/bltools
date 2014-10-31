@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8
 #
-# Copyright (c) 2014     , Frank Löffler
+# Copyright (c) 2014     Frank Löffler
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -151,10 +151,12 @@ def BaPFetchLegoInfo(opener, part_id):
   if (part_id in BaPData['p']):
     return BaPData['p'][part_id]
 
-  # Lego does not handle part_ids that contain letters. These are used by BL to distinguish
-  # between different types of the same design, but these "extensions" are not used by Lego.
-  # So, in order to find something at BaP under the part_id, we have to remove everything
-  # after, and including the first letter
+  # Lego does not handle part_ids that contain letters. These are used by BL to
+  # distinguish between different types of the same design, but these
+  # "extensions" are not used by Lego. So, in order to find something at BaP
+  # under the part_id, we have to remove everything after, and including the
+  # first letter. Note however, that this can get things wrong, e.g. regular
+  # tiles instead of named tiles.
   short_part_id = re.sub(r'[^0-9]+.*', '', part_id)
   conn = BaPmyopen(opener,
          r'https://service.lego.com/rpservice/rpsearch/getreleasedbricks?searchText=%s'%short_part_id,
@@ -215,7 +217,10 @@ def BaPGetAlternate_PartIDs(part_id):
     pickle.dump(BaPData, open(BAPCACHEFILE, 'wb'))
   return parser._result
 
-# Get a BL part id and color, and get the price information back from Bricks and Pieces
+'''
+Get a BL part id and color, and get the price information back from Bricks
+and Pieces
+'''
 def BaPFetchShopInfo(part_id, part_color):
   global BaPopener
   BaPInit()
@@ -235,7 +240,6 @@ def BaPFetchShopInfo(part_id, part_color):
   # all available element IDs (which encode also the color), and cross-check
   # with Bricklink if it is the one we are interested in. In other words, we need
   # to connect one of the element IDs to the BL color code we've been given.
-  #print " BaP: ",len(part_info), "candidates found for %s (%d)" % (part_id, part_color)
   if (part_info == None or len(part_info) == 0):
     part_info = []
   found = False
@@ -282,22 +286,20 @@ def BaPFetchShopInfo(part_id, part_color):
           else:
             colorcode = int(parser._result[0]['colorcode'])
         if not element_id in BaPData['e']:
-          BaPData['e'][element_id] = {'design_id': design_id, 'color': colorcode}
+          BaPData['e'][element_id] = {'design_id': design_id, 'color':colorcode}
           pickle.dump(BaPData, open(BAPCACHEFILE, 'wb'))
       if (colorcode == part_color):
         found = part
         break
   if found:
-    #print "Found: Part %s in color %d (Element ID %s): %s %s" % (
-    #      part_id, part_color, element_id, found['Price'], found['CId'])
     return {'quantity'  : 200,
             'unit_price': found['Price'],
             'min_buy'   : 0.0,
             'location'  : 'USA',
             'condition' : 'N',
             'shop_name' : 'Lego Bricks and Pieces',
-            'lotpic'    : 'https://a248.e.akamai.net/cache.lego.com'+found['Asset'],
+            'lotpic'    : 'https://a248.e.akamai.net/cache.lego.com'+
+                          found['Asset'],
            }
   return None
 
-#print BaPFetchShopInfo('61485', 86)

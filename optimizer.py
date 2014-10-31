@@ -1,6 +1,8 @@
 #!/usr/bin/python
+# -*- coding: utf-8
 #
-# Copyright (c) 2011-2012, Peter Dornbach.
+# Copyright (c) 2011-2012, Peter Dornbach
+#               2014-2014, Frank Löffler
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -294,7 +296,8 @@ class OptimizerBase(object):
                 'location': s['location']}
             found = True
             break
-        assert found or FLAGS.bap and BaP in set(s['shop_name'] for s in shops_for_parts[part]),(
+        assert found or FLAGS.bap and BaP in set(
+                s['shop_name'] for s in shops_for_parts[part]),(
                 'Element %s was not found. This can mean: 1) The part '
                 'number or color of the element is different on '
                 'Bricklink and LDD and the mapping must be added to '
@@ -396,7 +399,8 @@ def MinimizePart(self, i_start, i_end):
   shop_keys = sorted(self._shops.keys())
   shop_prices = {}
   for p in self._parts_needed:
-    shop_prices[p] = { s['shop_name']: s['unit_price'] for s in self._shops_for_parts[p] }
+    shop_prices[p] = { s['shop_name']: s['unit_price']
+                       for s in self._shops_for_parts[p] }
 
   best_price = 1.e10
   best_list  = None
@@ -420,7 +424,8 @@ def MinimizePart(self, i_start, i_end):
         if i & 1 << j]
       price = 0.0
       for p in self._parts_needed:
-        prices = [shop_prices[p][s] for s in set(shops)&set(shop_prices[p].keys())]
+        prices = [shop_prices[p][s]
+                  for s in set(shops) & set(shop_prices[p].keys())]
         if len(prices) > 0:
           min_price = min(prices)
           price += min_price * self._parts_needed[p]
@@ -433,7 +438,8 @@ def MinimizePart(self, i_start, i_end):
         best_list  = shops
         best_order = {}
         for p in self._parts_needed:
-          prices = {shop_prices[p][s]:s for s in set(shops)&set(shop_prices[p].keys())}
+          prices = {shop_prices[p][s] : s
+                    for s in set(shops) & set(shop_prices[p].keys())}
           min_price = min(prices)
           best_order.setdefault(prices[min_price],{})[p] = self._parts_needed[p]
   return (best_price, best_list, best_order)
@@ -567,7 +573,8 @@ class GlpkSolver(OptimizerBase):
       f.write('%s' % p)
       for s in self._shops:
         if s in set(s['shop_name'] for s in self._shops_for_parts[p]):
-          l = [o['unit_price'] for o in self._shops_for_parts[p] if o['shop_name'] == s]
+          l = [o['unit_price']
+               for o in self._shops_for_parts[p] if o['shop_name'] == s]
           f.write(' %.5f' % l[0])
         else:
           f.write(' %.5f' % AMPL_UNAVAILABLE_PRICE)
