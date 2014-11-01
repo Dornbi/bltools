@@ -72,8 +72,8 @@ class PartCollector:
         quantity = min(result[partA], to_subtract[part])
         to_subtract[part] -= quantity
         result    [partA] -= quantity
-        if (result[part] == 0):
-          del(result[part])
+        if (result[partA] == 0):
+          del(result[partA])
     return result
 
   def Parts(self):
