@@ -43,7 +43,7 @@ from HTMLParser import HTMLParser
 
 BAPCACHEFILE = '.bltools-cache/bap_cache'
 
-BAPKNOWN_UNKNOWN = {6092590: 88,}
+BAPKNOWN_UNKNOWN = {6092590: 88, 6102998: 150}
 
 class BaPResultHtmlParser(HTMLParser):
   def __init__(self, part_id):
@@ -274,6 +274,7 @@ def BaPFetchShopInfo(part_id, part_color):
           else:
             print parser._result
             print part
+            print "BL color code :", part_color
             print "BL part_id :", part_id
             sys.exit(1)
         if (colorcode < 0):

@@ -121,8 +121,6 @@ gflags.DEFINE_boolean(
     'depending on both parameters and input data.',
     short_name = 'p')
 
-    
-
 AMPL_MODEL="""
 set Bricks;
 

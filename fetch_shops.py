@@ -93,7 +93,9 @@ class ResultHtmlParser(HTMLParser):
       self._state = 4
     elif self._state == 5 and tag == 'b':
       self._state = 6
-    elif self._state == 7 and tag == 'a':
+    elif self._state == 7 and tag == 'font':
+      self._state = 8
+    elif self._state == 9 and tag == 'a':
       m = re.match(SHOP_NAME_REGEX, dict(attrs)['href'])
       if m:
         self._current_dict['shop_name'] = m.group(1)
@@ -125,6 +127,10 @@ class ResultHtmlParser(HTMLParser):
       self._current_dict['unit_price'] = float(
           ''.join(ch for ch in data.split(' ')[1] if ch in FLOAT_CHARS))
       self._state = 7
+    elif self._state == 8:
+      self._current_dict['unit_price'] = float(
+          ''.join(ch for ch in data.split(' ')[1] if ch in FLOAT_CHARS))
+      self._state = 9
 
   def Result(self):
     # Unify duplicate lots
