@@ -53,13 +53,13 @@ gflags.DEFINE_boolean(
 
 SHOP_LIST_URL_QUERY = (
   'http://www.bricklink.com/search.asp'
-  '?pg=1'
+  '?pg=%(page)d'
   '&q=%(part)s'
   '&sz=%(num_shops)d'
   '&searchSort=P')
 SHOP_LIST_URL_ITEMID = (
   'http://www.bricklink.com/search.asp'
-  '?pg=1'
+  '?pg=%(page)d'
   '&itemID=%(part)s'
   '&sz=%(num_shops)d'
   '&searchSort=P')
@@ -166,31 +166,42 @@ def FetchShopInfo(part_dict):
       else:
         m = re.search(CATALOG_ITEM_ID_REGEX, html)
       part_id = None
-      if (m):
-        part_id = m.group(1)
-        url_params = {
-          'part': part_id,
-          'num_shops': FLAGS.num_shops}
-        URL = SHOP_LIST_URL_ITEMID % url_params
-      else:
-        if (part.type() != 'P'):
-          print "\nBricklink ItemID not found for %s, maybe not available?" % part
-          sys.exit(1)
-        url_params = {
-          'part': part.id(),
-          'num_shops': FLAGS.num_shops}
-        URL = SHOP_LIST_URL_QUERY % url_params
-      if (part.condition() != 'A'):
-        URL += "&invNew=%s" % part.condition()
-      if (part.type() == 'P'):
-        URL = "%s&colorID=%s" % (URL, part.color())
-      conn = urllib.urlopen(URL)
-      parser = ResultHtmlParser(str(part))
-      html = conn.read()
-      parser.feed(html)
-      shop_items[part] = parser.Result()
+      page = 1
+      shop_items[part] = []
+      while (True):
+        if (m):
+          part_id = m.group(1)
+          url_params = {
+            'part': part_id,
+            'page' : page,
+            'num_shops': FLAGS.num_shops}
+          URL = SHOP_LIST_URL_ITEMID % url_params
+        else:
+          if (part.type() != 'P'):
+            print "\nBricklink ItemID not found for %s, maybe not available?" % part
+            sys.exit(1)
+          url_params = {
+            'part': part.id(),
+            'page': page,
+            'num_shops': FLAGS.num_shops}
+          URL = SHOP_LIST_URL_QUERY % url_params
+        if (part.condition() != 'A'):
+          URL += "&invNew=%s" % part.condition()
+        if (part.type() == 'P'):
+          URL = "%s&colorID=%s" % (URL, part.color())
+        conn = urllib.urlopen(URL)
+        parser = ResultHtmlParser(str(part))
+        html = conn.read()
+        parser.feed(html)
+        shop_data = parser.Result()
+        if (len(shop_data) > 0):
+          shop_items[part] += shop_data
+          page += 1
+        else:
+          break
+
       partfile = open(partfile_name, "w")
-      partfile.write(json.dumps(parser.Result()))
+      partfile.write(json.dumps(shop_items[part]))
       partfile.close()
     else:
       sys.stdout.write(" (from cache)")

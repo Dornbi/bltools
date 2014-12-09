@@ -109,10 +109,17 @@ gflags.DEFINE_integer(
     'solution.')
 
 gflags.DEFINE_integer(
-    'jobs', 8,
+    'jobs', 1,
     'The maximum number of shops to evaluate for any possible combination of '
     'considered shops. Affects --mode=builtin only.',
     short_name = 'j', lower_bound = 1)
+
+gflags.DEFINE_boolean(
+    'combinations', False,
+    'Only create potentially useful combinations. This only affects the '
+    'builtin optimizer, and might speed up (or slow down) the solution, '
+    'depending on both parameters and input data.',
+    short_name = 'p')
 
     
 
@@ -445,7 +452,101 @@ def MinimizePart(self, i_start, i_end):
   return (best_price, best_list, best_order)
 
 class BuiltinOptimizer(OptimizerBase):
+  def next_combination(self, l):
+    n = len(l)
+    # find tail
+    last = n-1 # tail is from `last` to end
+    while last > 0:
+        if l[last-1] < l[last]: break
+        last -= 1
+    # increase the number just before tail
+    if last > 0:
+        small = l[last-1]
+        big = n-1
+        while l[big] <= small: big -= 1
+        l[last-1], l[big] = l[big], small
+    # reverse tail
+    i = last
+    j = n-1
+    while i < j:
+        l[i], l[j] = l[j], l[i]
+        i += 1
+        j -= 1
+    return last>0
+
+  def RunCombinations(self):
+    sys.stdout.write('Optimizing using only potentially viable combinations.\n')
+    sys.stdout.flush()
+
+    # optimization: build dict that is used later for quick lookup whether
+    # a certain combination of shops actually provides all necessary parts
+    self.shops_have_part = {}
+    shops = sorted(self._shops.keys())
+    for p in self._parts_needed:
+      self.shops_have_part[p] = 0
+      for j in xrange(len(shops)):
+        if (shops[j] in [ s['shop_name'] for s in self._shops_for_parts[p] ]):
+          self.shops_have_part[p] += 1 << j
+
+    shop_keys = sorted(self._shops.keys())
+    shop_prices = {}
+    for p in self._parts_needed:
+      shop_prices[p] = { s['shop_name']: s['unit_price']
+                         for s in self._shops_for_parts[p] }
+    best_price = 1.e10
+    best_list  = None
+    best_order = None
+
+    bits = ((FLAGS.consider_shops-FLAGS.max_shops)*[0] +
+             FLAGS.max_shops*[1])
+    # do-while loop (break at the loop end)
+    while True:
+      bits_int = int("".join(map(str, bits)), 2)
+      possible = True
+      theseshops = [
+        shop_keys[j]
+        for j in xrange(len(self._shops)) if bits_int & 1<<j]
+      for p in self._parts_needed:
+        if (not (self.shops_have_part[p] & bits_int)):
+          possible = False
+          break
+      if (possible):
+        # generate list of shops from integer
+        theseshops = [
+          shop_keys[j]
+          for j in xrange(len(self._shops)) if bits_int & 1<<j]
+        price = 0.0
+        for p in self._parts_needed:
+          prices = [shop_prices[p][s]
+                    for s in set(theseshops) & set(shop_prices[p].keys())]
+          if len(prices) > 0:
+            min_price = min(prices)
+            price += min_price * self._parts_needed[p]
+          else:
+            price = -1e10
+        price = price + len(theseshops) * FLAGS.shop_fix_cost
+
+        if price >= 0 and price < best_price:
+          best_price = price
+          best_list  = theseshops
+          best_order = {}
+          for p in self._parts_needed:
+            prices = {shop_prices[p][s] : s
+                      for s in set(theseshops) & set(shop_prices[p].keys())}
+            min_price = min(prices)
+            best_order.setdefault(prices[min_price],{})[p] = self._parts_needed[p]
+          self._order_bricks = best_order
+      if not self.next_combination(bits):
+        break;
+    return (best_price, best_list, best_order)
+    
   def Run(self):
+    # Run "combinations" solver if requested. This is currently not split into a
+    # separate class because ideally a user shouldn't need to specify this, but
+    # instead a short trial should be run, determining which method is faster
+    # for a given run, and choose that.
+    if (FLAGS.combinations):
+      return self.RunCombinations()
     sys.stdout.write('Optimizing...')
     sys.stdout.flush()
     # optimization: build dict that is used later for quick lookup whether
