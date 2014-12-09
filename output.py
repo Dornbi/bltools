@@ -32,8 +32,10 @@ Outputs the result of the optimizer.
 
 import cgi
 import textwrap
+import lfxml
 
 import wanted_list
+from gflags import FLAGS
 
 MAX_CHARS=80
 
@@ -121,11 +123,11 @@ TOTAL_SKELETON = """
 </tr>
 <tr>
 <td>Net cost (without shipping):</td>
-<td class="rightalign">%.2f</td>
+<td class="rightalign"><b>%.2f</b></td>
 </tr>
 <tr>
 <td>Gross cost (shipping fee %.2f / shop):</td>
-<td class="rightalign">%.2f</td>
+<td class="rightalign"><b>%.2f</b></td>
 </tr>
 <tr>
 <tr>
@@ -152,12 +154,12 @@ ORDER_SHOPHEAD = """
 </tr>
 <tr>
 <td colspan="6">Net cost (without shipping):</td>
-<td class="rightalign">%.2f</td>
+<td class="rightalign"><b>%.2f</b></td>
 </tr>
 <tr>
 <td colspan="6">Gross cost (with shipping):</td>
-<td class="rightalign">%.2f</td>
-<td>Update wanted list ID:
+<td class="rightalign"><b>%.2f</b></td>
+<td colspan="2">Update wanted list ID:
 <input type="text" onchange="update(this, 'wanted_%s')"/>
 </td>
 </tr>
@@ -165,11 +167,12 @@ ORDER_SHOPHEAD = """
 
 ORDER_ROWHEAD = """
 <tr class="head">
-<td>Part<br/>(id-color)</td>
-<td>Condition</td>
-<td>Available<br/>in shops</td>
-<td class="rightalign">Quantity<br/>needed</td>
-<td class="rightalign">Quantity<br/>on order</td>
+<td>Part-ID</td>
+<td>Color</td>
+<td class="rightalign">Cond.</td>
+<td class="rightalign">shops</td>
+<td class="rightalign">Qty<br/>needed</td>
+<td class="rightalign">Qty<br/>ordered</td>
 <td class="rightalign">Unit<br/>price</td>
 <td class="rightalign">Total<br/>price</td>
 <td>Wanted list XML</td>
@@ -178,7 +181,7 @@ ORDER_ROWHEAD = """
 
 ORDER_XML = """
 <tr>
-<td colspan="7"></td>
+<td colspan="8"></td>
 <td class="wanted" rowspan="%d"><pre>%s</pre></td>
 </tr>
 """
@@ -187,6 +190,7 @@ ORDER_XML_DYNAMIC = '<span name="wanted_%s"></span>'
 
 ORDER_ROW = """
 <tr>
+<td>%s</td>
 <td>%s</td>
 <td>%s</td>
 <td class="rightalign">%d</td>
@@ -229,6 +233,7 @@ SHOP_LINK = 'http://www.bricklink.com/store.asp?p=%s'
 CATALOG_LINK = 'http://www.bricklink.com/catalogItem.asp?P=%s&colorID=%s'
 
 PART_LINK = 'http://www.bricklink.com/search.asp?Q=%s&colorID=%s'
+PART_LINK_NOCOLOR = 'http://www.bricklink.com/search.asp?Q=%s'
 PART_COND = '&invNew=%s'
 
 def LeftPad(v, width):
@@ -254,19 +259,27 @@ def PrintShopsText(optimizer):
   PrintListText(optimizer.SupplementalShops().keys())
 
 def PrintOrdersText(optimizer, shop_fix_cost):
-  print 'Orders:'
   orders = optimizer.Orders()
+  if (orders == None):
+    if (FLAGS.max_shops < FLAGS.consider_shops):
+      print "No possible orders found. Try increasing --max_shops."
+    else:
+      print "No possible orders found - which might be an internal error."
+    return
+  print 'Orders:'
   total_netto  = 0
   total_brutto = 0
-  for shop in sorted(orders):
+  for shop in sorted(orders, key=optimizer.NetShopTotal, reverse=True):
     shop_total = optimizer.NetShopTotal(shop)
     total_netto  += shop_total
-    total_brutto += shop_fix_cost
+    total_brutto += shop_total + shop_fix_cost
     print ' %s: (Total %s, Gross %s)' % (
         RightPad(shop, 20),
         LeftPad('%.2f' % shop_total, 8),
         LeftPad('%.2f' % (shop_total + shop_fix_cost), 8))
-    for part in orders[shop]:
+    for part in sorted(orders[shop],
+                       key=lambda p: optimizer.UnitPrice(shop, p) * orders[shop][p],
+                       reverse=True):
       unit_price = optimizer.UnitPrice(shop, part)
       num_bricks = orders[shop][part]
       print '  %-15s: %s (Unit price %s, Total %s)' % (
@@ -274,10 +287,11 @@ def PrintOrdersText(optimizer, shop_fix_cost):
           LeftPad(num_bricks, 4),
           LeftPad('%.2f' % unit_price, 8),
           LeftPad('%.2f' % (unit_price * num_bricks), 8))
-  print "Total: %10.2f, Gross %10.2f" % (total_netto, total_brutto)
+  print "Total: %10.2f, Gross %10.2f, Shops: %3d" % (total_netto, total_brutto, len(orders))
 
 def PrintAllHtml(
     optimizer,
+    shop_data,
     shop_fix_cost,
     ldd_file_name,
     output_html_file_name):
@@ -285,15 +299,19 @@ def PrintAllHtml(
   try:
     title = 'Orders for %s' % ldd_file_name
     orders = optimizer.Orders()
+    if (orders == None):
+      return
 
     orders_fragment = ''
     num_all_part_types = 0
     num_all_parts = 0
-    for shop in orders:
+    for shop in sorted(orders, key=optimizer.NetShopTotal, reverse=True):
       num_shop_part_types = 0
       num_shop_parts = 0
       shop_fragment = ''
-      for part in sorted(orders[shop]):
+      for part in sorted(orders[shop],
+                         key=lambda p: optimizer.UnitPrice(shop, p) * orders[shop][p],
+                         reverse=True):
         unit_price = optimizer.UnitPrice(shop, part)
         num_parts = orders[shop][part]
         num_shop_parts += num_parts
@@ -301,12 +319,22 @@ def PrintAllHtml(
         num_shop_part_types += 1
         num_all_part_types += 1
         used = '&nbsp;'
-        link = MakeLink(PART_LINK % tuple(part.split('-')[0:2]), part)
-        if (part.split('-')[2] in ('U', 'N')):
-          used = part.split('-')[2]
+        this_shop_data = [x for x in shop_data[part] if x['shop_name'] == shop][0]
+        imglink = this_shop_data['lotpic']
+        if (part.type() == 'P'):
+          link = PART_LINK % (part.id(), part.color())
+          color_name = lfxml.TRANSLATE_COLORS_BL[int(part.color())][1
+                       ].replace(' ', '&nbsp;')
+        else:
+          link = PART_LINK_NOCOLOR % (part.id())
+          color_name == "&nbsp;"
+        if (part.condition() in ('U', 'N')):
+          used = part.condition()
           link = link + PART_COND % used
+        link = MakeLink(link, part.id())
         shop_fragment += ORDER_ROW % (
-            link,
+            '<img width="50%" src="'+imglink+'"><br>'+link,
+            color_name,
             used,
             optimizer.NumShopsAvailable(part),
             optimizer.PartsNeeded()[part],

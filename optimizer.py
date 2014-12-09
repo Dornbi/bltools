@@ -1,6 +1,8 @@
 #!/usr/bin/python
+# -*- coding: utf-8
 #
-# Copyright (c) 2011-2012, Peter Dornbach.
+# Copyright (c) 2011-2012, Peter Dornbach
+#               2014-2014, Frank Löffler
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -39,9 +41,11 @@ import re
 import sys
 import subprocess
 import unicodedata
+import multiprocessing
 
 import lfxml
 import gflags
+import item
 
 FLAGS = gflags.FLAGS
 
@@ -68,6 +72,10 @@ gflags.DEFINE_list(
     'Does not allow these shops.')
 
 gflags.DEFINE_list(
+    'dont_exclude_shops', [],
+    'Does allow these shops, even if excluded by country.')
+
+gflags.DEFINE_list(
     'include_countries', [],
     'Allows these countries only. If empty, all countries are allowed.')
 
@@ -81,19 +89,37 @@ gflags.DEFINE_float(
 
 gflags.DEFINE_integer(
     'max_shops', 8,
-    'The maximum number of shops to evaluate. Affects --mode=builtin only.')
+    'The maximum number of shops to evaluate for any possible combination of '
+    'considered shops. Affects --mode=builtin only. Setting this to something '
+    'smaller than consider_shops does not always speed up the time to '
+    'solution, you will have to try with your specific query.')
 
 gflags.DEFINE_integer(
     'consider_shops', 20,
-    'Number of shops to consider. For mode=builtin the max feasible value is '
-    '20. With mode=glpk it can be much more, about 60 or 100 may be still ok '
+    'Number of shops to consider. The optimizer will consider combinations of '
+    'shops from a pool of this size. For mode=builtin the max feasible value '
+    'is currently about 25 (depending on machine speed, parallelization, '
+    'possibly the value of max_shops, and of course your patience. '
+    'With mode=glpk it can be much more, about 60 or 100 may be still ok '
     'depending on the model.')
     
 gflags.DEFINE_integer(
     'glpk_limit_seconds', 0,
     'If non-zero, glpk will spend so much time on finding the optimal '
     'solution.')
-    
+
+gflags.DEFINE_integer(
+    'jobs', 1,
+    'The maximum number of shops to evaluate for any possible combination of '
+    'considered shops. Affects --mode=builtin only.',
+    short_name = 'j', lower_bound = 1)
+
+gflags.DEFINE_boolean(
+    'combinations', False,
+    'Only create potentially useful combinations. This only affects the '
+    'builtin optimizer, and might speed up (or slow down) the solution, '
+    'depending on both parameters and input data.',
+    short_name = 'p')
 
 AMPL_MODEL="""
 set Bricks;
@@ -148,23 +174,22 @@ AMPL_UNAVAILABLE_PRICE = 1000;
 
 class OptimizerBase(object):
   
-  def Load(self, parts, ldd_file_name, shops_file_name, allow_used=[]):
+  def Load(self, parts, ldd_file_name, shop_data, allow_used=[]):
     self._ldd_file_name = ldd_file_name
-    # part: '%s-%s' % part_no, color
 
     # dict str(part) -> int(quantity)
     self._parts_needed = self._GetPartsNeeded(parts, allow_used)
-    unfiltered_shops_for_parts = self._LoadshopData(shops_file_name)
-    assert set(self._parts_needed.keys()).issubset(
-        unfiltered_shops_for_parts.keys())
+    assert set(self._parts_needed.keys()).issubset(shop_data.keys())
 
     # dict str(part) -> [dict(quantity, unit_price, shop_name)]
     self._shops_for_parts = self._FilterOffers(
-        self._parts_needed, unfiltered_shops_for_parts, allow_used)
+        self._parts_needed, shop_data, allow_used)
 
     self._CalculateCandidateShops(self._shops_for_parts, self._parts_needed)
     self._shops_for_parts = self._RemoveExcludedshops(
         self._shops_for_parts, self._shops.keys())
+
+    self._order_bricks = {}
 
   def PartsNeeded(self):
     return self._parts_needed
@@ -185,6 +210,8 @@ class OptimizerBase(object):
     return self._unselected_shops
 
   def Orders(self):
+    if (len(self._order_bricks) == 0):
+      return None
     return self._order_bricks
 
   def UnitPrice(self, shop, part):
@@ -211,15 +238,6 @@ class OptimizerBase(object):
     return parts_needed
 
   @staticmethod
-  def _LoadshopData(shops_for_parts_file_name):
-    shop_file = open(shops_for_parts_file_name, 'r')
-    try:
-      shops_for_parts = json.loads(shop_file.read())
-    finally:
-      shop_file.close()
-    return shops_for_parts
-
-  @staticmethod
   def _FilterOffers(parts_needed, shops_for_parts, allow_used):
     filtered_shops_for_parts = {}
     for p in shops_for_parts:
@@ -229,22 +247,26 @@ class OptimizerBase(object):
       for s in shops_for_parts[p]:
         if (s['quantity'] >= parts_needed[p]
             and (s['condition'] == 'N'
-                or p in allow_used)
+                or p in allow_used or p.condition()=='A')
             and (not FLAGS.include_shops
                 or s['shop_name'] in FLAGS.include_shops)
             and s['shop_name'] not in FLAGS.exclude_shops
             and (not FLAGS.include_countries
-                or s['location'] in FLAGS.include_countries)
-            and s['location'] not in FLAGS.exclude_countries):
+                or s['location'] in FLAGS.include_countries
+                or s['shop_name'] in FLAGS.dont_exclude_shops)
+            and (s['location'] not in FLAGS.exclude_countries
+                or s['shop_name'] in FLAGS.dont_exclude_shops)):
           new_shops.append(s)
       filtered_shops_for_parts[p] = new_shops
     return filtered_shops_for_parts
 
   def _CalculateCandidateShops(self, shops_for_parts, parts_needed):
+    if (len(parts_needed) == 0):
+      print "There is nothing to optimize, got an empty list."
+      sys.exit(0)
     # shops that we must take on the list to guarantee that we
     # have at least one shop for the part.
     critical_shops = {}
-
     # shops that we consider because they offer stuff cheaper.
     supplemental_shops = {}
 
@@ -256,6 +278,12 @@ class OptimizerBase(object):
 
     # First, establish at least one shop for each part and put it into
     # the criticical list.
+    # Special handling for Lego Bricks and Pieces, as while it often does
+    # have specialy parts for cheaper than on BL, it also has usual parts
+    # for more money than on BL. We don't want to pick up BaP as critical
+    # shop for a usual part. Thus, here we don't pick BaP as critical shop
+    # here, but add it unconditionally later (if --bap was given)
+    BaP = 'Lego Bricks and Pieces'
     for p in parts_by_rarity:
       part = p[0]
       existing_shops = (
@@ -265,18 +293,29 @@ class OptimizerBase(object):
       if not existing_shops:
         # We need one more critical shop, we use the cheapest for the part.
         for s in shops_for_parts[part]:
-          if s['shop_name'] not in FLAGS.exclude_shops:
+          if (s['shop_name'] not in FLAGS.exclude_shops and
+              s['shop_name'] != BaP):
             critical_shops[s['shop_name']] = {
                 'type': 'critical',
                 'min_buy': s['min_buy'],
                 'location': s['location']}
             found = True
             break
-        assert found, ('Element %s was not found. This can mean: 1) The part '
-                       'number or color of the element is different on '
-                       'Bricklink and LDD and the mapping must be added to '
-                       'lfxml.py 2) The part does not exist in this color.'
-                       % str(p))
+        assert found or FLAGS.bap and BaP in set(
+                s['shop_name'] for s in shops_for_parts[part]),(
+                'Element %s was not found. This can mean: 1) The part '
+                'number or color of the element is different on '
+                'Bricklink and LDD and the mapping must be added to '
+                'lfxml.py 2) The part is not availaable in this color.'
+                % str(p))
+    # Add Lego Bricks and Pieces here if requested, on purpose _after_ the
+    # other shops to make sure we have an alternative in the mix
+    if (FLAGS.bap):
+      critical_shops['Lego Bricks and Pieces'] = {
+        'type'    : 'critical',
+        'min_buy' : 0.0,
+        'location': 'USA'}
+
 
     # Second, populate the supplemental list with scores.
     base_score = 10 * (
@@ -309,6 +348,10 @@ class OptimizerBase(object):
 
     self._critical_shops = copy.copy(critical_shops)
 
+    if (FLAGS.consider_shops <= len(critical_shops)):
+      print "You have to allow to consider at least %d shops for this query." % (
+            len(critical_shops)+1)
+      sys.exit(1)
     assert len(critical_shops) < FLAGS.consider_shops
     supplemental_list = sorted(
         (s for s in supplemental_shops),
@@ -338,52 +381,212 @@ class OptimizerBase(object):
       result[p] = l
     return result
 
+""" Internal Optimizer class """
+
+"""
+Do part of the possible shop combinations, to be executed by one of
+possibly many processes.
+Note: This has to be a globally visible function instead of a member function
+      of the BuiltinOptimizer class (which would look much better), because
+      python's multiprocessing library cannot "pickle" class member functions,
+      but it does need to picke the function that is executed by multiple
+      processes.
+"""
+def MinimizePart(self, i_start, i_end):
+  """ Small helper function to count the bits set in an integer """
+  def BitCount(value):
+    count = 0
+    while (value):
+      value &= value - 1
+      count += 1
+    return count
+
+  shop_keys = sorted(self._shops.keys())
+  shop_prices = {}
+  for p in self._parts_needed:
+    shop_prices[p] = { s['shop_name']: s['unit_price']
+                       for s in self._shops_for_parts[p] }
+
+  best_price = 1.e10
+  best_list  = None
+  best_order = None
+  for i in xrange(i_start, i_end):
+    # abort early if this combination contains 'too many shops'
+    if (FLAGS.consider_shops > FLAGS.max_shops and
+                 BitCount(i) > FLAGS.max_shops):
+      continue
+    # quick way to see if this combination has all parts available
+    possible = True
+    for p in self._parts_needed:
+      if (not (self.shops_have_part[p] & i)):
+        possible = False
+        break
+    if (possible):
+      # generate list of shops from integer
+      shops = [
+        shop_keys[j]
+        for j in xrange(len(self._shops))
+        if i & 1 << j]
+      price = 0.0
+      for p in self._parts_needed:
+        prices = [shop_prices[p][s]
+                  for s in set(shops) & set(shop_prices[p].keys())]
+        if len(prices) > 0:
+          min_price = min(prices)
+          price += min_price * self._parts_needed[p]
+        else:
+          price = -1e-10
+      price = price + len(shops) * FLAGS.shop_fix_cost
+
+      if price >= 0 and price < best_price:
+        best_price = price
+        best_list  = shops
+        best_order = {}
+        for p in self._parts_needed:
+          prices = {shop_prices[p][s] : s
+                    for s in set(shops) & set(shop_prices[p].keys())}
+          min_price = min(prices)
+          best_order.setdefault(prices[min_price],{})[p] = self._parts_needed[p]
+  return (best_price, best_list, best_order)
 
 class BuiltinOptimizer(OptimizerBase):
+  def next_combination(self, l):
+    n = len(l)
+    # find tail
+    last = n-1 # tail is from `last` to end
+    while last > 0:
+        if l[last-1] < l[last]: break
+        last -= 1
+    # increase the number just before tail
+    if last > 0:
+        small = l[last-1]
+        big = n-1
+        while l[big] <= small: big -= 1
+        l[last-1], l[big] = l[big], small
+    # reverse tail
+    i = last
+    j = n-1
+    while i < j:
+        l[i], l[j] = l[j], l[i]
+        i += 1
+        j -= 1
+    return last>0
+
+  def RunCombinations(self):
+    sys.stdout.write('Optimizing using only potentially viable combinations.\n')
+    sys.stdout.flush()
+
+    # optimization: build dict that is used later for quick lookup whether
+    # a certain combination of shops actually provides all necessary parts
+    self.shops_have_part = {}
+    shops = sorted(self._shops.keys())
+    for p in self._parts_needed:
+      self.shops_have_part[p] = 0
+      for j in xrange(len(shops)):
+        if (shops[j] in [ s['shop_name'] for s in self._shops_for_parts[p] ]):
+          self.shops_have_part[p] += 1 << j
+
+    shop_keys = sorted(self._shops.keys())
+    shop_prices = {}
+    for p in self._parts_needed:
+      shop_prices[p] = { s['shop_name']: s['unit_price']
+                         for s in self._shops_for_parts[p] }
+    best_price = 1.e10
+    best_list  = None
+    best_order = None
+
+    bits = ((FLAGS.consider_shops-FLAGS.max_shops)*[0] +
+             FLAGS.max_shops*[1])
+    # do-while loop (break at the loop end)
+    while True:
+      bits_int = int("".join(map(str, bits)), 2)
+      possible = True
+      theseshops = [
+        shop_keys[j]
+        for j in xrange(len(self._shops)) if bits_int & 1<<j]
+      for p in self._parts_needed:
+        if (not (self.shops_have_part[p] & bits_int)):
+          possible = False
+          break
+      if (possible):
+        # generate list of shops from integer
+        theseshops = [
+          shop_keys[j]
+          for j in xrange(len(self._shops)) if bits_int & 1<<j]
+        price = 0.0
+        for p in self._parts_needed:
+          prices = [shop_prices[p][s]
+                    for s in set(theseshops) & set(shop_prices[p].keys())]
+          if len(prices) > 0:
+            min_price = min(prices)
+            price += min_price * self._parts_needed[p]
+          else:
+            price = -1e10
+        price = price + len(theseshops) * FLAGS.shop_fix_cost
+
+        if price >= 0 and price < best_price:
+          best_price = price
+          best_list  = theseshops
+          best_order = {}
+          for p in self._parts_needed:
+            prices = {shop_prices[p][s] : s
+                      for s in set(theseshops) & set(shop_prices[p].keys())}
+            min_price = min(prices)
+            best_order.setdefault(prices[min_price],{})[p] = self._parts_needed[p]
+          self._order_bricks = best_order
+      if not self.next_combination(bits):
+        break;
+    return (best_price, best_list, best_order)
+    
   def Run(self):
-    best_price = 10**10
-    best_list = None
+    # Run "combinations" solver if requested. This is currently not split into a
+    # separate class because ideally a user shouldn't need to specify this, but
+    # instead a short trial should be run, determining which method is faster
+    # for a given run, and choose that.
+    if (FLAGS.combinations):
+      return self.RunCombinations()
     sys.stdout.write('Optimizing...')
     sys.stdout.flush()
+    # optimization: build dict that is used later for quick lookup whether
+    # a certain combination of shops actually provides all necessary parts
+    self.shops_have_part = {}
+    shops = sorted(self._shops.keys())
+    for p in self._parts_needed:
+      self.shops_have_part[p] = 0
+      for j in xrange(len(shops)):
+        if (shops[j] in [ s['shop_name'] for s in self._shops_for_parts[p] ]):
+          self.shops_have_part[p] += 1 << j
+    # loop over all possible shop combinations, comparing price
     total = 2 ** FLAGS.consider_shops
-    for k in xrange(100):
-      for i in xrange(total * k / 100, total * (k+1) / 100):
-        shops = [
-            self._shops.keys()[j]
-            for j in xrange(len(self._shops))
-            if i & 1 << j]
-        if len(shops) <= FLAGS.max_shops:
-          p = self._TotalPrice(shops)
-          if p and p < best_price:
-            best_price = p
-            best_list = shops
-      sys.stdout.write('\rOptimizing... %d%%' % (k + 1))
-      sys.stdout.flush()
+    Nprocs = FLAGS.jobs
+    pool = multiprocessing.Pool(processes=Nprocs)
+    # devide work into more than Nprocs parts to increase load balance
+    Nparts = Nprocs*10
+    results = [pool.apply_async(
+      MinimizePart, args=(self, total * k / Nparts, total * (k+1) / Nparts) )
+      for k in xrange(Nparts)]
+    # catch KeyboardInterrupt to be able to abort 'cleanly' with Ctrl+C
+    best_price = 10**10
+    best_list = None
+    try:
+      output = []
+      for p in results:
+        output.append(p.get(0xFFFFFFFF))
+        for _best_price, _best_list, _best_order in output:
+          if (_best_list and _best_price < best_price):
+            best_price = _best_price
+            best_list  = _best_list
+            self._order_bricks = _best_order
+        if (best_list):
+          sys.stdout.write('\rOptimizing... %d%%, current best price: %.2f from %d shops.  ' % (
+                           int(100*len(output)/len(results)), best_price, len(self._order_bricks)))
+        else:
+          sys.stdout.write('\rOptimizing... %d%%' % (
+                           int(100*len(output)/len(results))))
+        sys.stdout.flush()
+    except KeyboardInterrupt:
+      return
     sys.stdout.write('\n')
-    if best_list:
-      self._UpdateOrders(best_list)
-
-  def _TotalPrice(self, shop_list):
-    price = 0.0
-    for p in self._parts_needed:
-      shop_prices = [
-          s['unit_price']
-          for s in self._shops_for_parts[p]
-          if s['shop_name'] in shop_list]
-      if shop_prices:
-        price += min(shop_prices) * self._parts_needed[p]
-      else:
-        return None
-    return price + len(shop_list) * FLAGS.shop_fix_cost
-
-  def _UpdateOrders(self, shop_list):
-    self._order_bricks = {}
-    for p in self._parts_needed:
-      for s in self._shops_for_parts[p]:
-        if s['shop_name'] in shop_list:
-          self._order_bricks.setdefault(s['shop_name'], {})[p] = (
-              self._parts_needed[p])
-          break;
 
 
 class GlpkSolver(OptimizerBase):
@@ -432,7 +635,7 @@ class GlpkSolver(OptimizerBase):
   def _Parse(self, f):
     self._order_bricks = {}
     shop_re = re.compile(r'order_shop\[(.*)\]')
-    brick_re = re.compile(r'order_brick\[\'(.*)\',(.*)\]')
+    brick_re = re.compile(r'order_brick\[(.*),(.*)\]')
     qty_re = re.compile(r'\A +\* +([0-9]+) +')
     for line in f:
       shop_match = shop_re.search(line)
@@ -441,7 +644,7 @@ class GlpkSolver(OptimizerBase):
         continue
       brick_match = brick_re.search(line)
       if brick_match:
-        brick = brick_match.group(1)
+        brick = item.item(brick_match.group(1))
         shop_name = GlpkSolver._TrimQuotes(brick_match.group(2))
         continue
       qty_match = qty_re.match(line)
@@ -469,7 +672,8 @@ class GlpkSolver(OptimizerBase):
       f.write('%s' % p)
       for s in self._shops:
         if s in set(s['shop_name'] for s in self._shops_for_parts[p]):
-          l = [o['unit_price'] for o in self._shops_for_parts[p] if o['shop_name'] == s]
+          l = [o['unit_price']
+               for o in self._shops_for_parts[p] if o['shop_name'] == s]
           f.write(' %.5f' % l[0])
         else:
           f.write(' %.5f' % AMPL_UNAVAILABLE_PRICE)

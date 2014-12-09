@@ -30,15 +30,51 @@
 Collects BrickLink parts.
 """
 
+import item
+
 class PartCollector:
   def __init__(self):
     self._parts = {}
-    self._part_ids = set()
 
-  def AddPart(self, part_id, color_id, quantity = 1, condition = 'A'):
-    key = '%s-%s-%s' % (part_id, color_id, condition)
+  def AddPart(self, part_id, color_id=0, quantity = 1, condition = 'A', type = 'P'):
+    # parts (bricks ect.) - usually something with a color
+    if (type == 'P'):
+      key = item.item('%s__%s__%s__%s' % (type, part_id, condition, color_id))
+    # everything else (instructions, boxes, sets) - something without color
+    else:
+      key = item.item('%s__%s__%s' % (type, part_id, condition))
     self._parts[key] = self._parts.get(key, 0) + quantity
-    self._part_ids.add(part_id)
+
+  def InitParts(self, parts):
+    self._parts = parts
+
+  def AddPartbyKey(self, key, quantity = 1):
+    self._parts[key] = self._parts.get(key, 0) + quantity
+
+  # Remove parts in the argument from this set of parts. This is intended to remove
+  # items in your inventory from your wanted_lists (for an order), but for that to
+  # work, your inventory items cannot have the 'any/A' condition, because we wouldn't
+  # know what to subtract in that case, unless your wanted list also only contains 'A'
+  # items.
+  def Subtract(self, to_subtract):
+    result = self._parts
+    for part in sorted(to_subtract, reverse=True):
+      # If we find the exact part, subtract it
+      if (part in result):
+        quantity = min(result[part], to_subtract[part])
+        to_subtract[part] -= quantity
+        result     [part] -= quantity
+        if (result[part] == 0):
+          del(result[part])
+      # If we find 'any condition' for this part in the wanted list, subtract that too
+      partA = part.set_condition('A')
+      if (partA in result):
+        quantity = min(result[partA], to_subtract[part])
+        to_subtract[part] -= quantity
+        result    [partA] -= quantity
+        if (result[partA] == 0):
+          del(result[partA])
+    return result
 
   def Parts(self):
     return self._parts

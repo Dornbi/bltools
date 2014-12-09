@@ -33,7 +33,10 @@ Fetches shop offers for items.
 import json
 import re
 import sys
+import os
 import urllib
+import datetime
+import fetch_bricks_and_pieces as BaP
 
 import gflags
 from HTMLParser import HTMLParser
@@ -44,14 +47,28 @@ gflags.DEFINE_integer(
     'num_shops', 500,
     'Number of shops to fetch. Note that bricklink won\'t allow more than 500.')
 
-SHOP_LIST_URL = (
+gflags.DEFINE_boolean(
+    'bap', False,
+    'Also include the Lego Bricks and Pieces shop in the query.')
+
+SHOP_LIST_URL_QUERY = (
   'http://www.bricklink.com/search.asp'
-  '?pg=1'
+  '?pg=%(page)d'
   '&q=%(part)s'
-  '&colorID=%(color)s'
+  '&sz=%(num_shops)d'
+  '&searchSort=P')
+SHOP_LIST_URL_ITEMID = (
+  'http://www.bricklink.com/search.asp'
+  '?pg=%(page)d'
+  '&itemID=%(part)s'
   '&sz=%(num_shops)d'
   '&searchSort=P')
 SHOP_NAME_REGEX = r'/store\.asp\?p=(.*)&itemID=.*'
+
+CATALOG_URL = (
+  'http://www.bricklink.com/catalogItem.asp?%(type)s=%(part)s' )
+CATALOG_ITEM_ID_REGEX       = r'<A HREF="search\.asp\?itemID=([^&"]*)'
+CATALOG_ITEM_ID_COLOR_REGEX = r'<A HREF="search\.asp\?itemID=([^&"]*)&colorID=%s'
 
 FLOAT_CHARS = set('0123456789.')
 INT_CHARS = set('0123456789')
@@ -69,11 +86,16 @@ class ResultHtmlParser(HTMLParser):
         attr_dict.setdefault('rel', '') == 'blcatimg'):
       self._state = 1
       self._current_dict = {}
-    elif self._state == 2 and tag == 'b':
-      self._state = 3
-    elif self._state == 4 and tag == 'b':
-      self._state = 5
-    elif self._state == 6 and tag == 'a':
+    elif self._state == 1 and tag == 'img':
+      self._current_dict['lotpic'] = attr_dict.setdefault('src', '')
+      self._state = 2
+    elif self._state == 3 and tag == 'b':
+      self._state = 4
+    elif self._state == 5 and tag == 'b':
+      self._state = 6
+    elif self._state == 7 and tag == 'font':
+      self._state = 8
+    elif self._state == 9 and tag == 'a':
       m = re.match(SHOP_NAME_REGEX, dict(attrs)['href'])
       if m:
         self._current_dict['shop_name'] = m.group(1)
@@ -81,11 +103,11 @@ class ResultHtmlParser(HTMLParser):
       self._state = 0
 
   def handle_data(self, data):
-    if self._state == 1 and data.startswith('Used'):
+    if self._state == 2 and data.startswith('Used'):
       self._current_dict['condition'] = 'U'
-    elif self._state == 1 and data.startswith('New'):
+    elif self._state == 2 and data.startswith('New'):
       self._current_dict['condition'] = 'N'
-    elif self._state == 1 and data.startswith('Loc:'):
+    elif self._state == 2 and data.startswith('Loc:'):
       m = re.match(r'Loc: (.*), Min Buy: (.*)', data)
       if m:
         self._current_dict['location'] = m.group(1)
@@ -95,16 +117,20 @@ class ResultHtmlParser(HTMLParser):
           self._current_dict['min_buy'] = float(min_buy_str)
         else:
           self._current_dict['min_buy'] = 0.0
-    elif self._state == 1 and data.startswith('Qty:'):
-      self._state = 2
-    elif self._state == 3:
+    elif self._state == 2 and data.startswith('Qty:'):
+      self._state = 3
+    elif self._state == 4:
       self._current_dict['quantity'] = int(
           ''.join(ch for ch in data if ch in INT_CHARS))
-      self._state = 4
-    elif self._state == 5:
+      self._state = 5
+    elif self._state == 6:
       self._current_dict['unit_price'] = float(
           ''.join(ch for ch in data.split(' ')[1] if ch in FLOAT_CHARS))
-      self._state = 6
+      self._state = 7
+    elif self._state == 8:
+      self._current_dict['unit_price'] = float(
+          ''.join(ch for ch in data.split(' ')[1] if ch in FLOAT_CHARS))
+      self._state = 9
 
   def Result(self):
     # Unify duplicate lots
@@ -119,25 +145,83 @@ class ResultHtmlParser(HTMLParser):
         key=lambda x: x['unit_price'])
 
 
-def FetchShopInfo(part_dict, filename):
-  outfile = open(filename, 'w')
+def FetchShopInfo(part_dict):
 
   shop_items = {}
   sys.stdout.write('Fetching offers...')
   sys.stdout.flush()
   for part in part_dict:
-    url_params = {
-      'part': part.split('-')[0],
-      'color': part.split('-')[1],
-      'num_shops': FLAGS.num_shops}
-    conn = urllib.urlopen(SHOP_LIST_URL % url_params)
-    parser = ResultHtmlParser(str(part))
-    parser.feed(conn.read())
-    shop_items[part] = parser.Result()
+    partfile_name = '%s/%s.shopdata' % (FLAGS.cachedir, part)
+    try:
+      partfile_lastmod = datetime.datetime.fromtimestamp(os.path.getmtime(partfile_name))
+    except:
+      # If file cannot be accessed for any reason...
+      partfile_lastmod = -1
     sys.stdout.write('\rFetching items... %d of %d'
-                     % (len(shop_items), len(part_dict)))
+                     % (len(shop_items)+1, len(part_dict)))
+    if (partfile_lastmod == -1 or
+        (datetime.datetime.now() - partfile_lastmod).total_seconds() > FLAGS.shopcache_timeout):
+      sys.stdout.write('             ')
+      # get itemID first. We have to do this because the search otherwise brings
+      # up all kinds of items for instructions or boxes (the actual sets)
+      URL = CATALOG_URL % {'type': part.type(), 'part': part.id() }
+      conn = urllib.urlopen(URL)
+      html = conn.read()
+      if part.type() == 'P':
+        m = re.search(CATALOG_ITEM_ID_COLOR_REGEX % part.color(), html)
+      else:
+        m = re.search(CATALOG_ITEM_ID_REGEX, html)
+      part_id = None
+      page = 1
+      shop_items[part] = []
+      while (True):
+        if (m):
+          part_id = m.group(1)
+          url_params = {
+            'part': part_id,
+            'page' : page,
+            'num_shops': FLAGS.num_shops}
+          URL = SHOP_LIST_URL_ITEMID % url_params
+        else:
+          if (part.type() != 'P'):
+            print "\nBricklink ItemID not found for %s, maybe not available?" % part
+            sys.exit(1)
+          url_params = {
+            'part': part.id(),
+            'page': page,
+            'num_shops': FLAGS.num_shops}
+          URL = SHOP_LIST_URL_QUERY % url_params
+        if (part.condition() != 'A'):
+          URL += "&invNew=%s" % part.condition()
+        if (part.type() == 'P'):
+          URL = "%s&colorID=%s" % (URL, part.color())
+        conn = urllib.urlopen(URL)
+        parser = ResultHtmlParser(str(part))
+        html = conn.read()
+        parser.feed(html)
+        shop_data = parser.Result()
+        if (len(shop_data) > 0):
+          shop_items[part] += shop_data
+          page += 1
+        else:
+          break
+
+      partfile = open(partfile_name, "w")
+      partfile.write(json.dumps(shop_items[part]))
+      partfile.close()
+    else:
+      sys.stdout.write(" (from cache)")
+      partfile = open(partfile_name, "r")
+      try:
+        data = json.loads(partfile.read())
+      finally:
+        partfile.close()
+      shop_items[part] = data
+    if (FLAGS.bap and part.type() == 'P'):
+      BaPInfo = BaP.BaPFetchShopInfo(part.id(), int(part.color()))
+      if (BaPInfo != None):
+        shop_items[part].append(BaPInfo)
     sys.stdout.flush()
     
-  outfile.write(json.dumps(shop_items))
-  outfile.close()
   sys.stdout.write('\n')
+  return shop_items

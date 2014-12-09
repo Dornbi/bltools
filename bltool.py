@@ -43,8 +43,8 @@ listed in the LDD file.
 Optimize does the following:
 
 1. If not cached yet, fetches prices and shops for all bricks in the LDD model
-   and store it a cache file. This will be also refetched if the model changes
-   or if a refetch is forced.
+   and stores them in cache files. This cache has a default "life time" of one
+   day, which can be changed with the --shopcache_timeout option.
 
 2. Runs the optimizer. There are two optimizers:
    --mode=builtin (default)
@@ -91,6 +91,8 @@ import os.path
 import sys
 
 import fetch_shops
+import fetch_wanted_list
+import fetch_inventory
 import gflags
 import lfxml
 import optimizer
@@ -108,16 +110,15 @@ gflags.DEFINE_string(
     'cachedir', '.bltools-cache',
     'Directory where cached files are saved.')
 
-gflags.DEFINE_boolean(
-    'refetch_shops', False,
-    'Refetches shop info even if the cached info exists. Note that '
-    'if parameters changed then the shop info will be refetched '
-    'regardless the value of this flag.')
+gflags.DEFINE_integer(
+    'shopcache_timeout', 60*60*24,
+    'Sets the timeout for the cache for shop data of parts, in seconds. '
+    'Default is one day (60*60*24)')
 
 gflags.DEFINE_list(
     'include_used', [],
     'Allows used bricks for the listed part numbers. The special value '
-    '"all" will allow all bricks. Example: 3022-48,3070b-56')
+    '"all" will allow all bricks.')
 
 gflags.DEFINE_list(
     'exclude_used', [],
@@ -128,6 +129,11 @@ gflags.DEFINE_string(
     'wanted_list_id', '',
     'Wanted list id for the output wanted list, or blank.')
 
+gflags.DEFINE_list(
+    'inventory', [],
+    'Specifies XML files contaning existing inventory, which would be treated '
+    'such for potential orders')
+
 COMMANDS = {
   'help': {
       'usage': 'help',
@@ -136,14 +142,18 @@ COMMANDS = {
       'func': lambda argv: HelpCommand(argv)},
   'list': {
       'usage': '[<flags>] list <LDD_file>',
-      'desc': 'Lists all bricks, colors and quantities from an LDD file.',
+      'desc': 'Lists all bricks, colors and quantities from an LDD file. Two '
+              'special values exist:\n'
+              '  * "wlist" lists items in a given wanted list '
+                '(--wanted_list_id)\n'
+              '  * "store" lists all items available in a given store.',
       'flags': ['wanted_list_id', 'include_used', 'exclude_used'],
       'func': lambda argv: ListCommand(argv)},
   'optimize': {
       'usage': '[<flags>] optimize <LDD_file>',
       'desc': 'Fetches BrickLink shops and print optimal sellers (expensive).',
       'flags': [
-          'output_html', 'cachedir', 'refetch_shops', 'include_used',
+          'output_html', 'cachedir', 'shopcache_timeout', 'include_used',
           'exclude_used', 'mode', 'rerun_solver', 'multiple', 'exclude_shops',
           'include_shops', 'include_countries', 'exclude_countries',
           'shop_fix_cost', 'max_shops', 'consider-shops', 'glpk_limit_seconds'],
@@ -176,7 +186,12 @@ def HelpCommand(argv):
   
 def ListCommand(argv):
   if len(argv) >= 3:
-    parts = ReadParts(argv[2:])
+    if argv[2] == 'wlist':
+      parts = fetch_wanted_list.FetchListParts()
+    elif argv[2] == 'store':
+      parts = fetch_inventory.FetchStoreInfo()
+    else:
+      parts = ReadParts(argv[2:])
     count = sum(parts[k] for k in parts)
     extra_tags = ''
     if FLAGS.wanted_list_id:
@@ -188,24 +203,26 @@ def ListCommand(argv):
     ReportError('Not enough args for list.')
     
 def OptimizeCommand(argv):
-  if len(argv) == 3:
-    parts = ReadParts(argv[2:3])
-    shops_file_name = '%s/%s.%08x.shops' % (
-        FLAGS.cachedir,
-        os.path.splitext(os.path.basename(argv[2]))[0],
-        hash(str(parts)) & 0xffffffff)
-    if FLAGS.refetch_shops:
-      print 'Forced refetch of shops file %s' % shops_file_name
-      fetch_shops.FetchShopInfo(parts, shops_file_name)
-    elif os.path.exists(shops_file_name):
-      print 'Using cached shops file %s' % shops_file_name
+  if len(argv) >= 3:
+    if argv[2] == 'wlist':
+      parts = fetch_wanted_list.FetchListParts()
+    # This arguably isn't the most useful option, but it works and in theory it
+    # gives you what your own inventory would be worth if bought now on BL
+    elif argv[2] == 'store':
+      parts = fetch_inventory.FetchStoreInfo()
     else:
-      print 'Cached shops file %s not found, refetching' % shops_file_name
-      try:
-        os.makedirs(FLAGS.cachedir)
-      except OSError:
-        pass
-      fetch_shops.FetchShopInfo(parts, shops_file_name)
+      parts = ReadParts(argv[2:])
+    try:
+      os.makedirs(FLAGS.cachedir)
+    except OSError:
+      pass
+    # reduce wanted parts by parts indicated to be already present
+    if (FLAGS.inventory):
+      iparts = ReadParts(FLAGS.inventory)
+      collector = part_collector.PartCollector()
+      collector.InitParts(parts)
+      parts = collector.Subtract(iparts)
+    shop_data = fetch_shops.FetchShopInfo(parts)
       
     try:
       opt = optimizer.CreateOptimizer()
@@ -213,14 +230,14 @@ def OptimizeCommand(argv):
       ReportError(e)
 
     allow_used = AllowedUsedBricks(parts)
-    opt.Load(parts, argv[2], shops_file_name, allow_used)
+    opt.Load(parts, argv[2], shop_data, allow_used)
     output.PrintShopsText(opt)
     opt.Run()
     output.PrintOrdersText(opt, FLAGS.shop_fix_cost)
     
     if FLAGS.output_html:
       output.PrintAllHtml(
-          opt, FLAGS.shop_fix_cost, argv[2], FLAGS.output_html)
+          opt, shop_data, FLAGS.shop_fix_cost, argv[2], FLAGS.output_html)
 
   else:
     ReportError('Optimize needs exactly one argument.')
@@ -232,7 +249,7 @@ def ReadParts(filenames):
       wanted_list.CollectBricklinkParts(filename, collector)
     elif filename.endswith('.lxf'):
       lfxml.CollectBricklinkParts(filename, collector)
-    else:
+    elif (filename != ''):
       print 'Unknown file type for file %s' % filename
   return collector.Parts()
 
